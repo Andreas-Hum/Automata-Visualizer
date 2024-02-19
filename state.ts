@@ -8,7 +8,7 @@ export default class State {
     }
 
     addTransition(symbol: string, state: State): boolean {
-        let states: Set<State> | undefined = this.transitions.get(symbol);
+        const states: Set<State> | undefined = this.transitions.get(symbol);
         if (states) {
             if (!states.has(state)) {
                 states.add(state);
@@ -22,7 +22,7 @@ export default class State {
     }
 
     deleteTransition(symbol: string, state: State): boolean {
-        let states: Set<State> | undefined = this.transitions.get(symbol);
+        const states: Set<State> | undefined = this.transitions.get(symbol);
         if (states) {
             if (states.has(state)) {
                 states.delete(state);
@@ -35,7 +35,7 @@ export default class State {
     printTransitionTable(): void {
         console.log(`Transition table for state: ${this.name}`);
         this.transitions.forEach((states, symbol) => {
-            let stateNames = Array.from(states).map(state => state.name).join(', ');
+            const stateNames = Array.from(states).map(state => state.name).join(', ');
             console.log(`Symbol: ${symbol}, States: ${stateNames}`);
         });
     }
