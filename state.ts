@@ -1,33 +1,31 @@
-
-
 export default class State {
     name: string;
-    transitions: Map<string, State[]>
+    transitions: Map<string, Set<State>>
 
-    constructor(name: string, transitions: Map<string, State[]>) {
+    constructor(name: string) {
         this.name = name;
-        this.transitions = transitions;
+        this.transitions = new Map();
     }
 
     addTransition(symbol: string, state: State): boolean {
-        let states: State[] | undefined = this.transitions.get(symbol);
+        let states: Set<State> | undefined = this.transitions.get(symbol);
         if (states) {
-            if (!states.includes(state)) {
-                states.push(state);
-                return true
+            if (!states.has(state)) {
+                states.add(state);
+                return true;
             }
         } else {
-            this.transitions.set(symbol, [state]);
-            return true
+            this.transitions.set(symbol, new Set([state]));
+            return true;
         }
-        return false
+        return false;
     }
 
     deleteTransition(symbol: string, state: State): boolean {
-        let states: State[] | undefined = this.transitions.get(symbol);
+        let states: Set<State> | undefined = this.transitions.get(symbol);
         if (states) {
-            if (states.includes(state)) {
-                states.splice(states.findIndex((x: State) => x === state))
+            if (states.has(state)) {
+                states.delete(state);
                 return true;
             }
         }
@@ -37,9 +35,8 @@ export default class State {
     printTransitionTable(): void {
         console.log(`Transition table for state: ${this.name}`);
         this.transitions.forEach((states, symbol) => {
-            let stateNames = states.map(state => state.name).join(', ');
+            let stateNames = Array.from(states).map(state => state.name).join(', ');
             console.log(`Symbol: ${symbol}, States: ${stateNames}`);
         });
     }
 }
-
