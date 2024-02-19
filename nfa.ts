@@ -8,39 +8,44 @@ export default class NFA {
 
 
 
+    constructor(states: Set<State>, transitions: Map<State, Map<string, Set<State>>>, alphabet: Set<string>) {
+        this.states = states;
+        this.transitions = transitions;
+        this.alphabet = alphabet;
+    }
 
+
+    /**
+     * Constructs the powerset of the states in the NFA.
+     * The powerset is a set of all possible subsets of a set.
+     * The subsets in the powerset are sorted by their size.
+     *
+     * @returns The powerset of the states in the NFA.
+     */
     constructPowerset(): Set<Set<State>> {
         const result: Set<Set<State>> = new Set();
         result.add(new Set<State>().add(new State("Ø")))
 
         const statesArray: State[] = Array.from(this.states);
+
+        // Loop over all numbers from 1 to 2^n - 1, where n is the number of states
         for (let i = 1; i < (1 << statesArray.length); i++) {
-            const subset: Set<State> = new Set();
+            let subset: Set<State> = new Set();
+
             for (let j = 0; j < statesArray.length; j++) {
-                if (i & (i << j)) {
+                // If the jth bit of i is set (i.e., if i & (1 << j) is not zero),
+                // add the jth state to the subset
+                if (i & (1 << j)) {
                     subset.add(statesArray[j])
                 }
             }
+
             result.add(subset)
         }
-        return result;
+
+        // Convert the result set to an array and sort it by the size of the subsets
+        const sortedResult: Set<State>[] = Array.from(result).sort((a, b) => a.size - b.size);
+
+        return new Set(sortedResult);
     }
 }
-
-// Create new NFA
-let nfa = new NFA();
-
-// Create and add states
-let state1 = new State("1");
-let state2 = new State("2");
-let state3 = new State("3");
-nfa.states.add(state1);
-nfa.states.add(state2);
-nfa.states.add(state3);
-
-// Print powerset
-let powerset = nfa.constructPowerset();
-powerset.forEach(set => {
-    let stateNames = Array.from(set).map(state => state.name).join(', ');
-    console.log(`{${stateNames}}`);
-});
