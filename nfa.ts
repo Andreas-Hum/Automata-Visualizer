@@ -26,7 +26,7 @@ export default class NFA {
         const result: Set<Set<State>> = new Set();
         result.add(new Set<State>().add(new State("Ø")))
 
-        const statesArray: State[] = Array.from(this.states);
+        const statesArray: State[] = Array.from(this.states).map((state: State) => new State(state.name));
 
         // Loop over all numbers from 1 to 2^n - 1, where n is the number of states
         for (let i = 1; i < (1 << statesArray.length); i++) {
@@ -34,7 +34,6 @@ export default class NFA {
 
             for (let j = 0; j < statesArray.length; j++) {
                 // If the jth bit of i is set (i.e., if i & (1 << j) is not zero),
-                // add the jth state to the subset
                 if (i & (1 << j)) {
                     subset.add(statesArray[j])
                 }
