@@ -7,8 +7,8 @@ export default class NFA {
     states: Set<State>;
     transitions: Map<State, Map<string, Set<State>>>
     alphabet: Set<string>
-    startState: State;
-    acceptStates: Set<State>
+    startState!: State;
+    acceptStates!: Set<State>
 
 
 
@@ -18,8 +18,9 @@ export default class NFA {
         this.transitions = transitions;
         this.alphabet = alphabet;
 
-        this.setAcceptStates(states)
-        this.setStartState(states)
+        this.setAcceptStates()
+        this.setStartState()
+        this.findUnreachableStates()
 
     }
 
@@ -60,10 +61,45 @@ export default class NFA {
     }
 
 
-    private findUnreachableStates(): void {
+    /**
+     * Finds and throws an error if there are any unreachable states in the NFA.
+     * 
+     * This method performs a depth-first search from the start state to find all reachable states.
+     * It then iterates over all states and throws an error if it finds any that were not visited during the search.
+     * 
+     * @throws {Error} Will throw an error if any unreachable states are found. The error message includes the names of the unreachable states.
+     */
+    public findUnreachableStates(): Set<State> {
+        const visited: Set<State> = new Set<State>();
+        const stack: State[] = [this.startState];
 
+        while (stack.length > 0) {
+            const state: State = stack.pop()!;
+            visited.add(state);
+
+            const transitions = this.transitions.get(state);
+            if (transitions) {
+                for (const nextStateSet of transitions.values()) {
+                    for (const nextState of nextStateSet) {
+                        if (!visited.has(nextState)) {
+                            stack.push(nextState);
+                        }
+                    }
+                }
+            }
+        }
+
+        const unreachableStates: State[] = [];
+        for (const state of this.states) {
+            if (!visited.has(state)) {
+                unreachableStates.push(state);
+            }
+        }
+
+        return new Set<State>(unreachableStates);
+
+     
     }
-
 
     /**
      * Sets the start state for the NFA.
@@ -74,8 +110,8 @@ export default class NFA {
      * @param {Set<State>} states - The set of states from which to find the start state.
      * @throws {Error} Will throw an error if no start state is defined or if more than one start state is defined.
      */
-    private setStartState(states: Set<State>): void {
-        const tempStartState: State[] = Array.from(states).filter((state: State) => state.settings.startState === true);
+    private setStartState(): void {
+        const tempStartState: State[] = Array.from(this.states).filter((state: State) => state.settings.startState === true);
 
         switch (tempStartState.length) {
             case 0:
@@ -97,8 +133,8 @@ export default class NFA {
      * @param {Set<State>} states - The set of states from which to find the accept states.
      * @throws {Error} Will throw an error if no accept states are defined.
      */
-    private setAcceptStates(states: Set<State>): void {
-        const tempAcceptStates: State[] = Array.from(states).filter((state: State) => state.settings.acceptState === true);
+    private setAcceptStates(): void {
+        const tempAcceptStates: State[] = Array.from(this.states).filter((state: State) => state.settings.acceptState === true);
 
         if (tempAcceptStates.length === 0) {
             throw new Error("No accept states defined");
@@ -107,3 +143,4 @@ export default class NFA {
         this.acceptStates = new Set<State>(tempAcceptStates);
     }
 }
+
