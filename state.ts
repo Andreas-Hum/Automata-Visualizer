@@ -1,13 +1,23 @@
+const EPSILON: string = 'ε'
+
 export default class State {
     name: string;
     transitions: Map<string, Set<State>>
-
-    constructor(name: string) {
-        this.name = name;
-        this.transitions = new Map();
+    settings: {
+        startState: boolean;
+        acceptState: boolean;
     }
 
-    addTransition(symbol: string, state: State): boolean {
+    constructor(name: string, settings: {
+        startState: boolean;
+        acceptState: boolean;
+    } = { startState: false, acceptState: false }) {
+        this.name = name;
+        this.transitions = new Map();
+        this.settings = settings;
+    }
+
+    public addTransition(symbol: string, state: State): boolean {
         const states: Set<State> | undefined = this.transitions.get(symbol);
         if (states) {
             if (!states.has(state)) {
@@ -21,7 +31,7 @@ export default class State {
         return false;
     }
 
-    deleteTransition(symbol: string, state: State): boolean {
+    public deleteTransition(symbol: string, state: State): boolean {
         const states: Set<State> | undefined = this.transitions.get(symbol);
         if (states) {
             if (states.has(state)) {
@@ -32,7 +42,7 @@ export default class State {
         return false;
     }
 
-    printTransitionTable(): void {
+    public printTransitionTable(): void {
         console.log(`Transition table for state: ${this.name}`);
         this.transitions.forEach((states, symbol) => {
             const stateNames = Array.from(states).map(state => state.name).join(', ');

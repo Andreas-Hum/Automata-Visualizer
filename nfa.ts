@@ -1,10 +1,15 @@
 import State from "./state";
 
+const EPSILON: string = 'ε'
+
 
 export default class NFA {
     states: Set<State>;
     transitions: Map<State, Map<string, Set<State>>>
     alphabet: Set<string>
+    startState: State;
+    acceptStates: Set<State>
+
 
 
 
@@ -12,7 +17,13 @@ export default class NFA {
         this.states = states;
         this.transitions = transitions;
         this.alphabet = alphabet;
+
+        this.setAcceptStates(states)
+        this.setStartState(states)
+
     }
+
+
 
 
     /**
@@ -46,5 +57,53 @@ export default class NFA {
         const sortedResult: Set<State>[] = Array.from(result).sort((a, b) => a.size - b.size);
 
         return new Set(sortedResult);
+    }
+
+
+    private findUnreachableStates(): void {
+
+    }
+
+
+    /**
+     * Sets the start state for the NFA.
+     * 
+     * This method filters the provided set of states to find the start state.
+     * It throws an error if no start state is defined or if more than one start state is defined.
+     * 
+     * @param {Set<State>} states - The set of states from which to find the start state.
+     * @throws {Error} Will throw an error if no start state is defined or if more than one start state is defined.
+     */
+    private setStartState(states: Set<State>): void {
+        const tempStartState: State[] = Array.from(states).filter((state: State) => state.settings.startState === true);
+
+        switch (tempStartState.length) {
+            case 0:
+                throw new Error("No start state defined");
+            case 1:
+                this.startState = tempStartState[0];
+                break;
+            default:
+                throw new Error("Can't have more than one start state defined");
+        }
+    }
+
+    /**
+     * Sets the accept states for the NFA.
+     * 
+     * This method filters the provided set of states to find the accept states.
+     * It throws an error if no accept states are defined.
+     * 
+     * @param {Set<State>} states - The set of states from which to find the accept states.
+     * @throws {Error} Will throw an error if no accept states are defined.
+     */
+    private setAcceptStates(states: Set<State>): void {
+        const tempAcceptStates: State[] = Array.from(states).filter((state: State) => state.settings.acceptState === true);
+
+        if (tempAcceptStates.length === 0) {
+            throw new Error("No accept states defined");
+        }
+
+        this.acceptStates = new Set<State>(tempAcceptStates);
     }
 }
