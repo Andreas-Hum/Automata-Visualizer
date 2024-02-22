@@ -15,7 +15,6 @@ export default class NFA {
     /**
         * Create a new NFA.
         * @param {Set<State>} states - The set of states in the NFA.
-        * @param {Map<State, Map<string, Set<State>>>} transitions - The transition function, mapping each state and symbol to a set of states.
         * @param {Set<string>} alphabet - The set of input symbols for the NFA.
         */
     constructor(states: Set<State>, alphabet: Set<string>) {
@@ -83,7 +82,7 @@ export default class NFA {
             const state: State = stack.pop()!;
             visited.add(state);
 
-            const transitions = this.transitions.get(state);
+            const transitions: Map<string, Set<State>> | undefined = this.transitions.get(state);
             if (transitions) {
                 for (const nextStateSet of transitions.values()) {
                     for (const nextState of nextStateSet) {
@@ -102,7 +101,6 @@ export default class NFA {
             }
         }
 
-        console.log(unreachableStates)
         return new Set<State>(unreachableStates);
 
     }
