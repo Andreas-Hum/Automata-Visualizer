@@ -12,11 +12,21 @@ export default class NFA {
 
 
 
-
-    constructor(states: Set<State>, transitions: Map<State, Map<string, Set<State>>>, alphabet: Set<string>) {
+    /**
+        * Create a new NFA.
+        * @param {Set<State>} states - The set of states in the NFA.
+        * @param {Map<State, Map<string, Set<State>>>} transitions - The transition function, mapping each state and symbol to a set of states.
+        * @param {Set<string>} alphabet - The set of input symbols for the NFA.
+        */
+    constructor(states: Set<State>, alphabet: Set<string>) {
         this.states = states;
-        this.transitions = transitions;
         this.alphabet = alphabet;
+
+        // Initialize the transitions map using the transitions property of each State object
+        this.transitions = new Map();
+        for (let state of this.states) {
+            this.transitions.set(state, state.transitions);
+        }
 
         this.setAcceptStates()
         this.setStartState()

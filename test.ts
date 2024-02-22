@@ -36,5 +36,5 @@ alphabet.add("c");
 alphabet.add("d");
 
 // Create NFA
-let nfa = new NFA(states, transitions, alphabet);
+let nfa = new NFA(states, alphabet);
 
