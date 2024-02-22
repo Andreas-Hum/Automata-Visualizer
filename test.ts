@@ -10,7 +10,6 @@ let state5 = new State("5", { startState: false, acceptState: true });
 
 // Create transitions
 state1.addTransition("a", state2);
-state2.addTransition("b", state3);
 state3.addTransition("c", state4);
 
 // Create set of states

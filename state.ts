@@ -1,5 +1,6 @@
-const EPSILON: string = 'ε'
-
+/**
+ * Class representing a state in a finite automaton.
+ */
 export default class State {
     name: string;
     transitions: Map<string, Set<State>>
@@ -8,6 +9,13 @@ export default class State {
         acceptState: boolean;
     }
 
+    /**
+     * Create a new state.
+     * @param {string} name - The name of the state.
+     * @param {Object} settings - The settings for the state.
+     * @param {boolean} settings.startState - Whether the state is a start state.
+     * @param {boolean} settings.acceptState - Whether the state is an accept state.
+     */
     constructor(name: string, settings: {
         startState: boolean;
         acceptState: boolean;
@@ -17,6 +25,12 @@ export default class State {
         this.settings = settings;
     }
 
+    /**
+     * Add a transition from this state to another state.
+     * @param {string} symbol - The symbol for the transition.
+     * @param {State} state - The state to transition to.
+     * @return {boolean} Whether the transition was added successfully.
+     */
     public addTransition(symbol: string, state: State): boolean {
         const states: Set<State> | undefined = this.transitions.get(symbol);
         if (states) {
@@ -31,6 +45,12 @@ export default class State {
         return false;
     }
 
+    /**
+     * Delete a transition from this state to another state.
+     * @param {string} symbol - The symbol for the transition.
+     * @param {State} state - The state to delete the transition to.
+     * @return {boolean} Whether the transition was deleted successfully.
+     */
     public deleteTransition(symbol: string, state: State): boolean {
         const states: Set<State> | undefined = this.transitions.get(symbol);
         if (states) {
@@ -42,6 +62,9 @@ export default class State {
         return false;
     }
 
+    /**
+     * Print the transition table for this state.
+     */
     public printTransitionTable(): void {
         console.log(`Transition table for state: ${this.name}`);
         this.transitions.forEach((states, symbol) => {

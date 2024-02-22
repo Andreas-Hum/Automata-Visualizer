@@ -25,16 +25,14 @@ export default class NFA {
     }
 
 
-
-
     /**
      * Constructs the powerset of the states in the NFA.
      * The powerset is a set of all possible subsets of a set.
      * The subsets in the powerset are sorted by their size.
      *
-     * @returns The powerset of the states in the NFA.
+     * @returns {Set<Set<State>>} The powerset of the states in the NFA.
      */
-    constructPowerset(): Set<Set<State>> {
+    public constructPowerset(): Set<Set<State>> {
         const result: Set<Set<State>> = new Set();
         result.add(new Set<State>().add(new State("Ø")))
 
@@ -54,7 +52,6 @@ export default class NFA {
             result.add(subset)
         }
 
-        // Convert the result set to an array and sort it by the size of the subsets
         const sortedResult: Set<State>[] = Array.from(result).sort((a, b) => a.size - b.size);
 
         return new Set(sortedResult);
@@ -63,11 +60,10 @@ export default class NFA {
 
     /**
      * Finds and throws an error if there are any unreachable states in the NFA.
-     * 
+     *
      * This method performs a depth-first search from the start state to find all reachable states.
      * It then iterates over all states and throws an error if it finds any that were not visited during the search.
-     * 
-     * @throws {Error} Will throw an error if any unreachable states are found. The error message includes the names of the unreachable states.
+     *
      */
     public findUnreachableStates(): Set<State> {
         const visited: Set<State> = new Set<State>();
@@ -96,9 +92,9 @@ export default class NFA {
             }
         }
 
+        console.log(unreachableStates)
         return new Set<State>(unreachableStates);
 
-     
     }
 
     /**
@@ -107,7 +103,6 @@ export default class NFA {
      * This method filters the provided set of states to find the start state.
      * It throws an error if no start state is defined or if more than one start state is defined.
      * 
-     * @param {Set<State>} states - The set of states from which to find the start state.
      * @throws {Error} Will throw an error if no start state is defined or if more than one start state is defined.
      */
     private setStartState(): void {
@@ -130,7 +125,6 @@ export default class NFA {
      * This method filters the provided set of states to find the accept states.
      * It throws an error if no accept states are defined.
      * 
-     * @param {Set<State>} states - The set of states from which to find the accept states.
      * @throws {Error} Will throw an error if no accept states are defined.
      */
     private setAcceptStates(): void {
