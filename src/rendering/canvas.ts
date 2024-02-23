@@ -121,39 +121,9 @@ class GridCanvas {
         } else if (this.transitionState) {
             e.preventDefault();
 
-            this.drawArrow(this.transitionState.originalX, this.transitionState.originalY, x, y, 110);
         }
     }
-    drawArrow(fromX: number, fromY: number, toX: number, toY: number, radius: number) {
-        // Clear the canvas
-        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
-        const dx = toX - fromX;
-        const dy = toY - fromY;
-        const angle = Math.atan2(dy, dx);
-    
-        // Calculate the starting point of the arrow on the border of the circle
-        const borderX = fromX + radius * Math.cos(angle);
-        const borderY = fromY + radius * Math.sin(angle);
-    
-        this.context.save(); // Save the current state
-    
-        // Apply transformations
-        this.context.translate(this.offsetX, this.offsetY);
-        this.context.scale(this.zoomLevel, this.zoomLevel);
-    
-        this.context.beginPath();
-        this.context.moveTo(borderX, borderY); // Start the arrow from the border of the state circle
-        this.context.lineTo(toX, toY);
-        this.context.strokeStyle = 'black';
-        this.context.stroke();
-    
-        this.context.restore(); // Restore the saved state
-    
-        // Redraw the other elements
-        this.drawStates();
-        this.drawGrid()
-    }
+
     mouseUpHandler(e: MouseEvent) {
         this.isDragging = false;
         this.draggedState = null;
@@ -340,11 +310,6 @@ class GridCanvas {
         this.context.font = `${70 / this.zoomLevel}px Arial`; // Adjust the font size according to the zoom level
         this.context.fillText(state.name, x, y);
 
-        state.transitions.forEach((transitionStates, transitionName) => {
-            transitionStates.forEach(transitionState => {
-                this.drawArrow(state.originalX, state.originalY, transitionState.originalX, transitionState.originalY, 110);
-            });
-        });
     }
 
     drawStates() {
