@@ -6,6 +6,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 class StateWithCoordinates extends State {
     originalX: number;
     originalY: number;
+    transitions: Map<string, Set<StateWithCoordinates>>;
 
     constructor(name: string, settings: { startState: boolean; acceptState: boolean }, x: number, y: number) {
         super(name, settings);
@@ -27,7 +28,7 @@ class GridCanvas {
     private contextMenu: HTMLDivElement | null;
     private states: StateWithCoordinates[] = []
     private draggedState: StateWithCoordinates | null;
-
+    private transitionState: StateWithCoordinates | null;
 
     constructor(id: string, zoomLevel: number) {
         this.canvas = document.getElementById(id) as HTMLCanvasElement;
@@ -38,7 +39,7 @@ class GridCanvas {
         this.isDragging = false;
         this.zoomLevel = zoomLevel;
         this.contextMenu = null;
-
+        this.transitionState = null;
         this.canvas.addEventListener('mousedown', this.mouseDownHandler.bind(this));
         this.canvas.addEventListener('mousemove', this.mouseMoveHandler.bind(this));
         this.canvas.addEventListener('mouseup', this.mouseUpHandler.bind(this));
@@ -93,7 +94,15 @@ class GridCanvas {
         }
     }
 
+
+
     mouseMoveHandler(e: MouseEvent) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) - this.offsetX) / this.zoomLevel;
+        const y = ((e.clientY - rect.top) - this.offsetY) / this.zoomLevel;
+
+        console.log(`Mouse position: x = ${x}, y = ${y}`);
+
         if (this.isDragging) {
             e.preventDefault();
             this.offsetX = e.clientX - this.startX;
@@ -102,9 +111,6 @@ class GridCanvas {
             this.drawGrid();
         } else if (this.draggedState) {
             e.preventDefault();
-            const rect = this.canvas.getBoundingClientRect();
-            const x = ((e.clientX - rect.left) - this.offsetX) / this.zoomLevel;
-            const y = ((e.clientY - rect.top) - this.offsetY) / this.zoomLevel;
 
             this.draggedState.originalX += x - this.startX;
             this.draggedState.originalY += y - this.startY;
@@ -112,13 +118,67 @@ class GridCanvas {
             this.startY = y;
 
             this.drawGrid();
+        } else if (this.transitionState) {
+            e.preventDefault();
+
+            this.drawArrow(this.transitionState.originalX, this.transitionState.originalY, x, y, 110);
         }
     }
-
+    drawArrow(fromX: number, fromY: number, toX: number, toY: number, radius: number) {
+        // Clear the canvas
+        this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    
+        const dx = toX - fromX;
+        const dy = toY - fromY;
+        const angle = Math.atan2(dy, dx);
+    
+        // Calculate the starting point of the arrow on the border of the circle
+        const borderX = fromX + radius * Math.cos(angle);
+        const borderY = fromY + radius * Math.sin(angle);
+    
+        this.context.save(); // Save the current state
+    
+        // Apply transformations
+        this.context.translate(this.offsetX, this.offsetY);
+        this.context.scale(this.zoomLevel, this.zoomLevel);
+    
+        this.context.beginPath();
+        this.context.moveTo(borderX, borderY); // Start the arrow from the border of the state circle
+        this.context.lineTo(toX, toY);
+        this.context.strokeStyle = 'black';
+        this.context.stroke();
+    
+        this.context.restore(); // Restore the saved state
+    
+        // Redraw the other elements
+        this.drawStates();
+        this.drawGrid()
+    }
     mouseUpHandler(e: MouseEvent) {
         this.isDragging = false;
         this.draggedState = null;
         this.canvas.style.cursor = 'grab';
+        if (this.transitionState) {
+            const rect = this.canvas.getBoundingClientRect();
+            const x = ((e.clientX - rect.left) - this.offsetX) / this.zoomLevel;
+            const y = ((e.clientY - rect.top) - this.offsetY) / this.zoomLevel;
+
+            const clickedState = this.states.find(state => {
+                const distance = Math.sqrt(Math.pow(x - state.originalX, 2) + Math.pow(y - state.originalY, 2));
+                return distance <= 50 / this.zoomLevel; // Adjust the radius as needed
+            });
+
+            if (clickedState && clickedState !== this.transitionState) {
+                // Add the transition to the states
+                if (!this.transitionState.transitions.has(clickedState.name)) {
+                    this.transitionState.transitions.set(clickedState.name, new Set());
+                }
+                this.transitionState.transitions.get(clickedState.name).add(clickedState);
+            }
+
+            this.transitionState = null;
+            this.drawGrid();
+        }
     }
 
     mouseOutHandler(e: MouseEvent) {
@@ -177,6 +237,16 @@ class GridCanvas {
         this.contextMenu.style.top = `${e.clientY}px`;
 
         if (clickedState) {
+            let addTransitionItem = document.createElement('button');
+            addTransitionItem.classList.add('dropdown-item'); // Add Bootstrap class
+            addTransitionItem.innerHTML = '<i class="bi bi-arrow-right-circle"></i> Add Transition'; // Add Bootstrap Icon
+            addTransitionItem.addEventListener('click', () => {
+                this.transitionState = clickedState;
+                document.body.removeChild(this.contextMenu);
+                this.contextMenu = null;
+            });
+            this.contextMenu.appendChild(addTransitionItem);
+
             // Add the "Change Name" menu item
             let changeNameItem = document.createElement('button');
             changeNameItem.classList.add('dropdown-item'); // Add Bootstrap class
@@ -233,9 +303,10 @@ class GridCanvas {
             addStateItem.classList.add('dropdown-item'); // Add Bootstrap class
             addStateItem.innerHTML = '<i class="bi bi-plus-circle"></i> Add State'; // Add Bootstrap Icon
             addStateItem.addEventListener('click', () => {
-                const name = `${this.states.length + -1}`; // Generate a name for the new state
+                const name = `${this.states.length}`; // Generate a name for the new state
                 const settings = { startState: false, acceptState: false }; // Default settings
                 const newState = new StateWithCoordinates(name, settings, x, y);
+                console.log(x, y)
                 this.states.push(newState);
                 this.drawGrid();
                 document.body.removeChild(this.contextMenu);
@@ -268,6 +339,12 @@ class GridCanvas {
         this.context.textBaseline = 'middle';
         this.context.font = `${70 / this.zoomLevel}px Arial`; // Adjust the font size according to the zoom level
         this.context.fillText(state.name, x, y);
+
+        state.transitions.forEach((transitionStates, transitionName) => {
+            transitionStates.forEach(transitionState => {
+                this.drawArrow(state.originalX, state.originalY, transitionState.originalX, transitionState.originalY, 110);
+            });
+        });
     }
 
     drawStates() {
