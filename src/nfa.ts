@@ -319,7 +319,16 @@ export default class NFA {
         latex += "\\end{tikzpicture}\n";
         return latex;
     }
-
+    /**
+     * Converts the NFA to a DOT language representation.
+     * 
+     * The DOT language is a plain text graph description language.
+     * It is a simple way of describing graphs that both humans and computer programs can use.
+     * 
+     * This method assumes that the NFA is represented as a class with states, startState, and acceptStates properties.
+     * 
+     * @returns {string} A string in the DOT language that represents the NFA.
+     */
     public NFA_to_dot(): string {
         let dot = "digraph {\n";
         dot += "  rankdir=LR;\n";
@@ -335,7 +344,7 @@ export default class NFA {
             }
         }
         for (let state of this.states) {
-            dot += `  "${state.name}" [pos="${state.x/100},${state.y/100}!"];\n`;
+            dot += `  "${state.name}" [pos="${state.x / 100},${state.y / 100}!"];\n`;
         }
         dot += "}";
         return dot;

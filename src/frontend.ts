@@ -352,9 +352,6 @@ document.getElementById('preset-1')?.addEventListener('click', () => {
     const startX = 0;
     const startY = 0;
     const nodeDistance = 100;
-    const transparentNodeX = startX - nodeDistance;
-    const transparentNodeY = startY;
-
 
     nodes.add([
         { id: 1, label: 'q0', x: startX, y: startY, color: { background: 'white', border: 'black' }, physics: false },
@@ -410,8 +407,7 @@ document.getElementById('preset-2')?.addEventListener('click', () => {
     const startX = 0;
     const startY = 0;
     const nodeDistance = 100;
-    const transparentNodeX = startX - nodeDistance;
-    const transparentNodeY = startY;
+
 
     nodes.add([
         { id: 1, label: 'q0', x: startX, y: startY, color: { background: 'white', border: 'black' }, physics: false },
