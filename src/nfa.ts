@@ -1,3 +1,5 @@
+import { DataSet, Node, Edge } from 'vis-network/standalone/esm/vis-network';
+
 import State from "./state";
 
 const EPSILON: string = 'ε'
@@ -143,6 +145,180 @@ export default class NFA {
         }
 
         this.acceptStates = new Set<State>(tempAcceptStates);
+    }
+
+    /**
+     * Converts a visual representation of a NFA to an NFA object.
+     *
+     * @static
+     * @param {DataSet<Node>} nodes - The nodes of the visual representation.
+     * @param {DataSet<Edge>} edges - The edges of the visual representation.
+     * @returns {NFA} - The NFA object.
+     */
+    static vis_to_NFA(nodes: DataSet<Node>, edges: DataSet<Edge>): NFA {
+        let states = new Set<State>();
+
+        let alphabet = new Set<string>();
+        let startNodeLabel: string | undefined;
+
+        // Find the start node
+        edges.forEach(edge => {
+            if (edge.from === 9999) {
+                startNodeLabel = nodes.get(edge.to)?.label;
+            }
+        });
+
+        nodes.forEach(node => {
+            if (node.id !== 9999) {
+                let settings = {
+                    startState: node.label === startNodeLabel,
+                    acceptState: typeof node.color !== 'string' && (node.color.background === 'green' || node.color.background === 'orange')
+                };
+                let state = new State(node.label, settings);
+                state.x = node.x
+                state.y = node.y
+                states.add(state);
+            }
+        });
+
+        edges.forEach(edge => {
+            if (edge.from !== 9999 && edge.to !== 9999) {
+                let fromState = Array.from(states).find(state => state.name === nodes.get(edge.from).label);
+                let toState = Array.from(states).find(state => state.name === nodes.get(edge.to).label);
+                if (fromState && toState) {
+                    fromState.addTransition(edge.label, toState);
+                }
+                if (!alphabet.has(edge.label)) {
+                    alphabet.add(edge.label);
+                }
+            }
+        });
+
+        return new NFA(states, alphabet);
+    }
+
+    /**
+     * Generates a LaTeX representation of the transition table for the NFA.
+     *
+     * The table has one row for each state and one column for each symbol in the alphabet.
+     * The first column contains the state names.
+     * The following columns contain the transitions for each symbol in the alphabet.
+     * The last column contains the transitions for the epsilon symbol.
+     *
+     * Each cell in the table contains a comma-separated list of the names of the states
+     * that the current state transitions to with the corresponding symbol.
+     *
+     * @returns A string containing the LaTeX code for the transition table.
+     */
+    public transition_table_latex(): string {
+        let filteredAlphabet = Array.from(this.alphabet).filter(symbol => symbol !== EPSILON);
+        let latex = "\\begin{tabular}{|c|" + "|c".repeat(filteredAlphabet.length + 1) + "|}\\hline\n";
+        latex += " & " + filteredAlphabet.join(' & ') + " & \$\\varepsilon\$\\\\\\hline\n";
+
+        this.states.forEach(state => {
+            let row = [state.name];
+            filteredAlphabet.forEach(symbol => {
+                const nextStateSet = state.transitions.get(symbol);
+                row.push(nextStateSet ? Array.from(nextStateSet, s => s.name).join(', ') : '');
+            });
+            const epsilonTransitions = state.transitions.get(EPSILON) || new Set();
+            row.push(Array.from(epsilonTransitions, s => s.name).join(', '));
+            latex += row.join(' & ') + "\\\\\\hline\n";
+        });
+
+        latex += "\\end{tabular}\n";
+        return latex;
+    }
+
+
+    /**
+     * Generates a LaTeX representation of the NFA using the tikz package.
+     *
+     * The generated code includes a tikzpicture environment with one node for each state
+     * and one path for each transition. The start state is marked as initial and the accept states
+     * are marked as accepting.
+     *
+     * @returns A string containing the LaTeX code for the NFA.
+     */
+    public NFA_to_latex(): string {
+
+        let latex = "\\begin{tikzpicture}[shorten >=1pt,node distance=2cm,on grid,auto]\n";
+        let statesArray = Array.from(this.states);
+        let edges = new Map<string, string>();
+
+        // Sort the states array so that the start state is the first element
+        statesArray.sort((a, b) => a === this.startState ? -1 : b === this.startState ? 1 : 0);
+
+        // Add a node for each state
+        let incomingConnections = new Map<State, number>();
+        statesArray.forEach(state => {
+            state.transitions.forEach(nextStates => {
+                nextStates.forEach(nextState => {
+                    if (!incomingConnections.has(nextState)) {
+                        incomingConnections.set(nextState, 0);
+                    }
+                    incomingConnections.set(nextState, incomingConnections.get(nextState)! + 1);
+                });
+            });
+        });
+
+        let scale = 30;
+        statesArray.forEach((state, index) => {
+            let attributes = `state${state === this.startState ? ',initial' : ''}${this.acceptStates.has(state) ? ',accepting' : ''}`;
+            let position = `at (${state.x / scale}, ${-state.y / scale})`;
+
+            latex += `   \\node[${attributes}] (q_${index}) ${position} {${state.name}};\n`;
+        });
+
+        let path = "   \\path[->]\n";
+        for (let fromIndex = 0; fromIndex < statesArray.length; fromIndex++) {
+            let state = statesArray[fromIndex];
+            let mergedTransitions = new Map<State, Set<string>>();
+
+            state.transitions.forEach((nextStates, symbol) => {
+                nextStates.forEach((nextState) => {
+                    if (!mergedTransitions.has(nextState)) {
+                        mergedTransitions.set(nextState, new Set());
+                    }
+                    mergedTransitions.get(nextState)?.add(symbol);
+                });
+            });
+
+            mergedTransitions.forEach((symbols, nextState) => {
+                let toIndex = statesArray.indexOf(nextState);
+                let edge = `q_${fromIndex} to q_${toIndex}`;
+                let reverseEdge = `q_${toIndex} to q_${fromIndex}`;
+                let bend = "";
+                if (fromIndex === toIndex) {
+                    bend = "loop above";
+                } else if (edges.has(reverseEdge)) {
+                    bend = "bend left";
+                    edges.set(reverseEdge, "bend left");
+                } else {
+                    edges.set(edge, bend);
+                }
+                let symbolLabel = Array.from(symbols).join(',').replace(EPSILON, '$\\varepsilon$');
+                path += `   (q_${fromIndex}) edge [${bend}] node {${symbolLabel}} (q_${toIndex})\n`;
+            });
+        }
+
+        let updatedPath = "";
+        let lines = path.split('\n');
+        for (let line of lines) {
+            let match = line.match(/\(q_(\d+)\) edge \[\] node \{(.+?)\} \(q_(\d+)\)/);
+            if (match) {
+                let fromIndex = parseInt(match[1]);
+                let toIndex = parseInt(match[3]);
+                let edge = `q_${fromIndex} to q_${toIndex}`;
+                let bend = edges.get(edge) || "";
+                updatedPath += `   (q_${fromIndex}) edge [${bend}] node {${match[2]}} (q_${toIndex})\n`;
+            } else {
+                updatedPath += line + '\n';
+            }
+        }
+        latex += updatedPath + ";\n";
+        latex += "\\end{tikzpicture}\n";
+        return latex;
     }
 }
 

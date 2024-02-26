@@ -8,6 +8,8 @@ export default class State {
         startState: boolean;
         acceptState: boolean;
     }
+    x: any = ""
+    y: any = ""
 
     /**
      * Create a new state.
