@@ -241,19 +241,16 @@ export default class NFA {
      * @returns A string containing the LaTeX code for the NFA.
      */
     public NFA_to_latex(): string {
+        let latex: string = "\\begin{tikzpicture}[shorten >=1pt,node distance=2cm,on grid,auto]\n";
+        let statesArray: State[] = Array.from(this.states);
+        let edges: Map<string, string> = new Map<string, string>();
 
-        let latex = "\\begin{tikzpicture}[shorten >=1pt,node distance=2cm,on grid,auto]\n";
-        let statesArray = Array.from(this.states);
-        let edges = new Map<string, string>();
+        statesArray.sort((a: State, b: State) => a === this.startState ? -1 : b === this.startState ? 1 : 0);
 
-        // Sort the states array so that the start state is the first element
-        statesArray.sort((a, b) => a === this.startState ? -1 : b === this.startState ? 1 : 0);
-
-        // Add a node for each state
-        let incomingConnections = new Map<State, number>();
-        statesArray.forEach(state => {
-            state.transitions.forEach(nextStates => {
-                nextStates.forEach(nextState => {
+        let incomingConnections: Map<State, number> = new Map<State, number>();
+        statesArray.forEach((state: State) => {
+            state.transitions.forEach((nextStates: Set<State>) => {
+                nextStates.forEach((nextState: State) => {
                     if (!incomingConnections.has(nextState)) {
                         incomingConnections.set(nextState, 0);
                     }
@@ -262,21 +259,21 @@ export default class NFA {
             });
         });
 
-        let scale = 30;
-        statesArray.forEach((state, index) => {
-            let attributes = `state${state === this.startState ? ',initial' : ''}${this.acceptStates.has(state) ? ',accepting' : ''}`;
-            let position = `at (${state.x / scale}, ${-state.y / scale})`;
+        let scale: number = 30;
+        statesArray.forEach((state: State, index: number) => {
+            let attributes: string = `state${state === this.startState ? ',initial' : ''}${this.acceptStates.has(state) ? ',accepting' : ''}`;
+            let position: string = `at (${state.x / scale}, ${-state.y / scale})`;
 
             latex += `   \\node[${attributes}] (q_${index}) ${position} {${state.name}};\n`;
         });
 
-        let path = "   \\path[->]\n";
-        for (let fromIndex = 0; fromIndex < statesArray.length; fromIndex++) {
-            let state = statesArray[fromIndex];
-            let mergedTransitions = new Map<State, Set<string>>();
+        let path: string = "   \\path[->]\n";
+        for (let fromIndex: number = 0; fromIndex < statesArray.length; fromIndex++) {
+            let state: State = statesArray[fromIndex];
+            let mergedTransitions: Map<State, Set<string>> = new Map<State, Set<string>>();
 
-            state.transitions.forEach((nextStates, symbol) => {
-                nextStates.forEach((nextState) => {
+            state.transitions.forEach((nextStates: Set<State>, symbol: string) => {
+                nextStates.forEach((nextState: State) => {
                     if (!mergedTransitions.has(nextState)) {
                         mergedTransitions.set(nextState, new Set());
                     }
@@ -284,11 +281,11 @@ export default class NFA {
                 });
             });
 
-            mergedTransitions.forEach((symbols, nextState) => {
-                let toIndex = statesArray.indexOf(nextState);
-                let edge = `q_${fromIndex} to q_${toIndex}`;
-                let reverseEdge = `q_${toIndex} to q_${fromIndex}`;
-                let bend = "";
+            mergedTransitions.forEach((symbols: Set<string>, nextState: State) => {
+                let toIndex: number = statesArray.indexOf(nextState);
+                let edge: string = `q_${fromIndex} to q_${toIndex}`;
+                let reverseEdge: string = `q_${toIndex} to q_${fromIndex}`;
+                let bend: string = "";
                 if (fromIndex === toIndex) {
                     bend = "loop above";
                 } else if (edges.has(reverseEdge)) {
@@ -297,20 +294,20 @@ export default class NFA {
                 } else {
                     edges.set(edge, bend);
                 }
-                let symbolLabel = Array.from(symbols).join(',').replace(EPSILON, '$\\varepsilon$');
+                let symbolLabel: string = Array.from(symbols).join(',').replace(EPSILON, '$\\varepsilon$');
                 path += `   (q_${fromIndex}) edge [${bend}] node {${symbolLabel}} (q_${toIndex})\n`;
             });
         }
 
-        let updatedPath = "";
-        let lines = path.split('\n');
+        let updatedPath: string = "";
+        let lines: string[] = path.split('\n');
         for (let line of lines) {
-            let match = line.match(/\(q_(\d+)\) edge \[\] node \{(.+?)\} \(q_(\d+)\)/);
+            let match: RegExpMatchArray | null = line.match(/\(q_(\d+)\) edge \[\] node \{(.+?)\} \(q_(\d+)\)/);
             if (match) {
-                let fromIndex = parseInt(match[1]);
-                let toIndex = parseInt(match[3]);
-                let edge = `q_${fromIndex} to q_${toIndex}`;
-                let bend = edges.get(edge) || "";
+                let fromIndex: number = parseInt(match[1]);
+                let toIndex: number = parseInt(match[3]);
+                let edge: string = `q_${fromIndex} to q_${toIndex}`;
+                let bend: string | undefined = edges.get(edge) || "";
                 updatedPath += `   (q_${fromIndex}) edge [${bend}] node {${match[2]}} (q_${toIndex})\n`;
             } else {
                 updatedPath += line + '\n';
@@ -320,5 +317,7 @@ export default class NFA {
         latex += "\\end{tikzpicture}\n";
         return latex;
     }
+
+
 }
 

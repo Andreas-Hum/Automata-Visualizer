@@ -7,7 +7,77 @@ import NFA from './nfa';
 // Create a context menu
 let contextMenu: any = null;
 let pickingTransitionState = false;
+// Update the states
+function updateStates(states: string[]) {
+    const statesElement = document.getElementById('NFAstates');
+    if (statesElement) {
+        statesElement.innerText = `{${states.join(', ')}}`;
+    }
+}
 
+// Update the alphabet
+function updateAlphabet(alphabet: string[]) {
+    const uniqueAlphabet = Array.from(new Set(alphabet)); // Convert to Set to remove duplicates, then back to Array for joining
+    const alphabetElement = document.getElementById('NFAalphabet');
+    if (alphabetElement) {
+        alphabetElement.innerText = `{${uniqueAlphabet.join(', ')}}`;
+    }
+}
+// Update the start state
+function updateStartState(startState: string) {
+    const startStateElement = document.getElementById('NFAstartState');
+    if (startStateElement) {
+        startStateElement.innerText = startState;
+    }
+}
+
+function updateTransitionSet() {
+    const transitionSetElement = document.getElementById('NFtransitionSet');
+    if (transitionSetElement) {
+        const transitions = edges.get().flatMap(edge => {
+            const fromNode = nodes.get(edge.from);
+            const toNode = nodes.get(edge.to);
+            if (fromNode.label && toNode.label) {
+                return edge.label.split(',').map(input => `((${fromNode.label}, ${input}) -> ${toNode.label})`);
+            }
+            return [];
+        });
+        transitionSetElement.innerText = `{${transitions.join(', ')}}`;
+    }
+}
+// Update the accept states
+function updateAcceptStates(acceptStates: string[]) {
+    const acceptStatesElement = document.getElementById('NFAacceptStates');
+    if (acceptStatesElement) {
+        acceptStatesElement.innerText = `{${acceptStates.join(', ')}}`;
+    }
+}
+
+// Update the table
+function updateTransitionTable() {
+    const transitionTableElement = document.getElementById('NFAtable');
+    if (transitionTableElement) {
+        const alphabet = getAlphabet();
+        const nodeLabels = nodes.get().filter(node => node.label).map(node => node.label);
+        let tableHtml = '<thead><tr><th>State</th>' + alphabet.map(symbol => `<th>${symbol}</th>`).join('') + '</tr></thead><tbody>';
+
+        nodeLabels.forEach(fromLabel => {
+            tableHtml += `<tr><td>${fromLabel}</td>`;
+            alphabet.forEach(symbol => {
+                const toLabels = edges.get().filter(edge => nodes.get(edge.from).label === fromLabel && edge.label.split(',').includes(symbol)).map(edge => nodes.get(edge.to).label);
+                tableHtml += `<td>${toLabels.join(', ')}</td>`;
+            });
+            tableHtml += '</tr>';
+        });
+
+        tableHtml += '</tbody>';
+        transitionTableElement.innerHTML = tableHtml;
+    }
+}
+
+function getAlphabet() {
+    return edges.get().flatMap(edge => edge.label ? edge.label.split(',') : []);
+}
 
 function removeContextMenu() {
     if (contextMenu && document.body.contains(contextMenu)) {
@@ -43,6 +113,7 @@ network.on('oncontext', function (params) {
             if (newName !== null) {
                 clickedNode.label = newName;
                 nodes.update(clickedNode);
+                updateStates(nodes.get().map(node => node.label))
             }
             removeContextMenu();
         }));
@@ -69,11 +140,18 @@ network.on('oncontext', function (params) {
                             arrows: 'to',
                             label: transitionLabel
                         });
+
                     }
+
+                    updateTransitionSet();
+                    updateTransitionTable()
                 };
                 network.unselectAll();
                 pickingTransitionState = false;
+                updateAlphabet(edges.get().flatMap(edge => edge.label ? edge.label.split(',') : []));
+
             });
+
             removeContextMenu();
         }));
         contextMenu.appendChild(createMenuItem('bi bi-play-circle', 'Toggle Start State', () => {
@@ -89,6 +167,12 @@ network.on('oncontext', function (params) {
             }
             if (currentStartNode && clickedNode.id === currentStartNode.id) {
                 updateNodeColor(currentStartNode, { background: 'white', border: 'black' });
+                updateStartState('')
+                nodes.remove(transparentNodeId);
+                const edgeFromTransparentNode = edges.get().find(edge => edge.from === transparentNodeId);
+                if (edgeFromTransparentNode) {
+                    edges.remove(edgeFromTransparentNode.id);
+                }
             } else {
                 if (currentStartNode) {
                     updateNodeColor(currentStartNode, { background: 'white', border: 'black' });
@@ -97,9 +181,11 @@ network.on('oncontext', function (params) {
                     id: transparentNodeId,
                     label: '',
                     color: { background: 'transparent', border: 'transparent' },
-                    x: clickedNode.x - 50, // Adjust this value to fit your needs
+                    x: clickedNode.x - 50,
                     y: clickedNode.y,
-                    physics: false
+                    physics: false,
+                    fixed: true,
+                    chosen: false
                 });
                 edges.add({
                     from: transparentNodeId,
@@ -110,9 +196,11 @@ network.on('oncontext', function (params) {
                     smooth: {
                         enabled: true,
                         type: 'straightCross',
-                        roundness: 1  // Adjust this value to fit your needs
+                        roundness: 1
                     }
                 });
+
+                updateStartState(clickedNode.label)
             }
             removeContextMenu();
         }));
@@ -130,9 +218,10 @@ network.on('oncontext', function (params) {
                 newColor = { background: 'green', border: 'black' };
             }
             updateNodeColor(clickedNode, newColor);
+            const acceptStates = nodes.get().filter(node => typeof node.color !== 'string' && node.color.background === 'green').map(node => node.label);
+            updateAcceptStates(acceptStates);
             removeContextMenu();
         }));
-
 
         contextMenu.appendChild(createMenuItem('bi bi-trash', 'Delete', () => {
             // Remove all edges connected to the node
@@ -141,13 +230,23 @@ network.on('oncontext', function (params) {
 
             // Remove the node
             nodes.remove(clickedNodeId);
-
+            updateStates(nodes.get().map(node => node.label))
+            updateTransitionSet();
+            updateTransitionTable()
             removeContextMenu();
         }));
 
     } else if (clickedEdge) {
         contextMenu.appendChild(createMenuItem('bi bi-trash', 'Delete', () => {
             edges.remove(clickedEdgeId);
+            const edgeLabels = edges.get();
+            if (edgeLabels) {
+                updateAlphabet(edgeLabels.flatMap(edge => edge.label.split(',')));
+            } else {
+                updateAlphabet([]);
+            }
+            updateTransitionTable()
+            updateTransitionSet();
             removeContextMenu();
         }));
     } else {
@@ -158,6 +257,7 @@ network.on('oncontext', function (params) {
             }
 
             nodes.add({ id: nodeId, label: 'q' + nodeId, x: pointer.x, y: pointer.y, color: { background: 'white', border: 'black' }, physics: false });
+            updateStates(nodes.get().map(node => node.label));
             removeContextMenu();
         }));
     }
@@ -171,9 +271,7 @@ document.addEventListener('click', function (event) {
     }
 });
 
-document.getElementById('toLatex').addEventListener('click', function () {
-    console.log(NFA.vis_to_NFA(nodes, edges).NFA_to_latex())
-});
+
 let isDragging = false;
 
 network.on('dragStart', function () {
@@ -204,7 +302,7 @@ network.on('afterDrawing', function () {
         let startNode = nodes.get(startNodeId);
 
         if (transparentNode && startNode) {
-            transparentNode.x = startNode.x - 50; 
+            transparentNode.x = startNode.x - 50;
             transparentNode.y = startNode.y
             nodes.update(transparentNode);
         }
@@ -213,7 +311,6 @@ network.on('afterDrawing', function () {
 
 document.getElementById('toLatex').addEventListener('click', function () {
     const latex = NFA.vis_to_NFA(nodes, edges).NFA_to_latex();
-
     document.getElementById('latexModalBody').innerText = latex;
 
     //@ts-ignore
@@ -225,13 +322,74 @@ document.getElementById('toLatex').addEventListener('click', function () {
 document.getElementById('copyButton').addEventListener('click', function () {
     const latex = document.getElementById('latexModalBody').innerText;
     navigator.clipboard.writeText(latex).then(() => {
-        // Change the button text to "Copied!" when the text is successfully copied
+
         const copyButton = document.getElementById('copyButton');
         copyButton.innerText = "Copied!";
-        
-        // Change the button text back to "Copy to Clipboard" after 3 seconds
+
         setTimeout(() => {
             copyButton.innerText = "Copy to Clipboard";
         }, 3000);
     });
+});
+
+
+
+
+document.getElementById('preset-1')?.addEventListener('click', () => {
+    // Clear the existing nodes and edges
+    nodes.clear();
+    edges.clear();
+
+    // Define the positions of the start node and the transparent node
+    const startX = 0;
+    const startY = 0;
+    const nodeDistance = 100; // Define the distance between nodes
+    const transparentNodeX = startX - nodeDistance;
+    const transparentNodeY = startY;
+
+    // Add nodes and edges for preset 1
+    nodes.add([
+        { id: 1, label: 'q0', x: startX, y: startY, color: { background: 'white', border: 'black' }, physics: false },
+        { id: 2, label: 'q1', x: startX + nodeDistance, y: startY, color: { background: 'green', border: 'black' }, physics: false },
+        { id: 3, label: 'q2', x: startX + 2 * nodeDistance, y: startY, color: { background: 'white', border: 'black' }, physics: false },
+        { id: 4, label: 'q3', x: startX + 3 * nodeDistance, y: startY, color: { background: 'white', border: 'black' }, physics: false },
+    ]);
+    edges.add([
+        { from: 1, to: 2, label: 'a' },
+        { from: 2, to: 3, label: 'b' },
+        { from: 3, to: 4, label: 'c' },
+    ]);
+
+    const transparentNodeId = 9999;
+    nodes.add({
+        id: transparentNodeId,
+        label: '',
+        color: { background: 'transparent', border: 'transparent' },
+        x: transparentNodeX,
+        y: transparentNodeY,
+        physics: false,
+        fixed: true,
+        chosen: false
+    });
+    edges.add({
+        from: transparentNodeId,
+        to: 1,
+        arrows: 'to',
+        color: 'black',
+        chosen: false,
+        smooth: {
+            enabled: true,
+            type: 'straightCross',
+            roundness: 1
+        }
+    });
+
+    // Enable the clear button
+    document.getElementById('nfa-reset')?.removeAttribute('disabled');
+    updateStartState('q0')
+    updateAlphabet(["a", "b", "c"]);
+    updateStates(nodes.get().map(node => node.label))
+    updateAcceptStates(["q1"])
+    updateTransitionSet();
+    updateTransitionTable()
 });
