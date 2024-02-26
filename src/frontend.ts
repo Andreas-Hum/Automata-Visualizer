@@ -4,10 +4,10 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import { nodes, edges, network, updateNodeColor, createMenuItem, EPSILON } from './network';
 import NFA from './nfa';
 
-// Create a context menu
+
 let contextMenu: any = null;
 let pickingTransitionState = false;
-// Update the states
+
 function updateStates(states: string[]) {
     const statesElement = document.getElementById('NFAstates');
     if (statesElement) {
@@ -15,15 +15,15 @@ function updateStates(states: string[]) {
     }
 }
 
-// Update the alphabet
+
 function updateAlphabet(alphabet: string[]) {
-    const uniqueAlphabet = Array.from(new Set(alphabet)); // Convert to Set to remove duplicates, then back to Array for joining
+    const uniqueAlphabet = Array.from(new Set(alphabet));
     const alphabetElement = document.getElementById('NFAalphabet');
     if (alphabetElement) {
         alphabetElement.innerText = `{${uniqueAlphabet.join(', ')}}`;
     }
 }
-// Update the start state
+
 function updateStartState(startState: string) {
     const startStateElement = document.getElementById('NFAstartState');
     if (startStateElement) {
@@ -45,7 +45,7 @@ function updateTransitionSet() {
         transitionSetElement.innerText = `{${transitions.join(', ')}}`;
     }
 }
-// Update the accept states
+
 function updateAcceptStates(acceptStates: string[]) {
     const acceptStatesElement = document.getElementById('NFAacceptStates');
     if (acceptStatesElement) {
@@ -53,7 +53,7 @@ function updateAcceptStates(acceptStates: string[]) {
     }
 }
 
-// Update the table
+
 function updateTransitionTable() {
     const transitionTableElement = document.getElementById('NFAtable');
     if (transitionTableElement) {
@@ -234,6 +234,9 @@ network.on('oncontext', function (params) {
             updateTransitionSet();
             updateTransitionTable()
             removeContextMenu();
+            if (nodes.length === 0) {
+                document.getElementById('nfa-reset')?.setAttribute('disabled', 'true');
+            }
         }));
 
     } else if (clickedEdge) {
@@ -258,6 +261,9 @@ network.on('oncontext', function (params) {
 
             nodes.add({ id: nodeId, label: 'q' + nodeId, x: pointer.x, y: pointer.y, color: { background: 'white', border: 'black' }, physics: false });
             updateStates(nodes.get().map(node => node.label));
+            if (nodes.length === 0) {
+                document.getElementById('nfa-reset')?.setAttribute('disabled', 'false');
+            }
             removeContextMenu();
         }));
     }
@@ -333,21 +339,23 @@ document.getElementById('copyButton').addEventListener('click', function () {
 });
 
 
-
+document.getElementById("toDot").addEventListener('click', () => {
+    const latex = NFA.vis_to_NFA(nodes, edges).NFA_to_dot()
+    console.log(latex)
+});
 
 document.getElementById('preset-1')?.addEventListener('click', () => {
-    // Clear the existing nodes and edges
+
     nodes.clear();
     edges.clear();
 
-    // Define the positions of the start node and the transparent node
     const startX = 0;
     const startY = 0;
-    const nodeDistance = 100; // Define the distance between nodes
+    const nodeDistance = 100;
     const transparentNodeX = startX - nodeDistance;
     const transparentNodeY = startY;
 
-    // Add nodes and edges for preset 1
+
     nodes.add([
         { id: 1, label: 'q0', x: startX, y: startY, color: { background: 'white', border: 'black' }, physics: false },
         { id: 2, label: 'q1', x: startX + nodeDistance, y: startY, color: { background: 'green', border: 'black' }, physics: false },
@@ -365,8 +373,8 @@ document.getElementById('preset-1')?.addEventListener('click', () => {
         id: transparentNodeId,
         label: '',
         color: { background: 'transparent', border: 'transparent' },
-        x: transparentNodeX,
-        y: transparentNodeY,
+        x: startX - 50,
+        y: startY,
         physics: false,
         fixed: true,
         chosen: false
@@ -384,7 +392,7 @@ document.getElementById('preset-1')?.addEventListener('click', () => {
         }
     });
 
-    // Enable the clear button
+
     document.getElementById('nfa-reset')?.removeAttribute('disabled');
     updateStartState('q0')
     updateAlphabet(["a", "b", "c"]);
@@ -393,3 +401,72 @@ document.getElementById('preset-1')?.addEventListener('click', () => {
     updateTransitionSet();
     updateTransitionTable()
 });
+
+
+document.getElementById('preset-2')?.addEventListener('click', () => {
+    nodes.clear();
+    edges.clear();
+
+    const startX = 0;
+    const startY = 0;
+    const nodeDistance = 100;
+    const transparentNodeX = startX - nodeDistance;
+    const transparentNodeY = startY;
+
+    nodes.add([
+        { id: 1, label: 'q0', x: startX, y: startY, color: { background: 'white', border: 'black' }, physics: false },
+        { id: 2, label: 'q1', x: startX + nodeDistance, y: startY + nodeDistance, color: { background: 'green', border: 'black' }, physics: false },
+        { id: 3, label: 'q2', x: startX + 2 * nodeDistance, y: startY - nodeDistance, color: { background: 'white', border: 'black' }, physics: false },
+        { id: 4, label: 'q3', x: startX + 3 * nodeDistance, y: startY, color: { background: 'white', border: 'black' }, physics: false },
+    ]);
+    edges.add([
+        { from: 1, to: 2, label: 'a' },
+        { from: 2, to: 3, label: 'b' },
+        { from: 3, to: 4, label: 'c' },
+        { from: 3, to: 2, label: 'd' },
+        { from: 2, to: 2, label: 'a' },
+
+
+    ]);
+
+    const transparentNodeId = 9999;
+    nodes.add({
+        id: transparentNodeId,
+        label: '',
+        color: { background: 'transparent', border: 'transparent' },
+        x: startX - 50,
+        y: startY,
+        physics: false,
+        fixed: true,
+        chosen: false
+    });
+    edges.add({
+        from: transparentNodeId,
+        to: 1,
+        arrows: 'to',
+        color: 'black',
+        chosen: false,
+        smooth: {
+            enabled: true,
+            type: 'straightCross',
+            roundness: 1
+        }
+    });
+
+    document.getElementById('nfa-reset')?.removeAttribute('disabled');
+    updateStartState('q0')
+    updateAlphabet(["a", "b", "c", "d"]);
+    updateStates(nodes.get().map(node => node.label))
+    updateAcceptStates(["q1"])
+    updateTransitionSet();
+    updateTransitionTable()
+});
+
+document.getElementById('nfa-reset')?.addEventListener('click', () => {
+    nodes.clear();
+    edges.clear();
+
+    document.getElementById('nfa-reset')?.setAttribute('disabled', 'true');
+});
+
+

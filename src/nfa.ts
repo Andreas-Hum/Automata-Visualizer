@@ -231,6 +231,8 @@ export default class NFA {
     }
 
 
+
+
     /**
      * Generates a LaTeX representation of the NFA using the tikz package.
      *
@@ -318,6 +320,25 @@ export default class NFA {
         return latex;
     }
 
-
+    public NFA_to_dot(): string {
+        let dot = "digraph {\n";
+        dot += "  rankdir=LR;\n";
+        dot += "  node [shape = point ]; qi\n";
+        dot += `  node [shape = doublecircle]; ${Array.from(this.acceptStates, state => `"${state.name}"`).join(' ')};\n`;
+        dot += "  node [shape = circle];\n";
+        dot += `  qi -> "${this.startState.name}";\n`;
+        for (let state of this.states) {
+            for (let [symbol, nextStates] of state.transitions) {
+                for (let nextState of nextStates) {
+                    dot += `  "${state.name}" -> "${nextState.name}" [ label = "${symbol}" ];\n`;
+                }
+            }
+        }
+        for (let state of this.states) {
+            dot += `  "${state.name}" [pos="${state.x/100},${state.y/100}!"];\n`;
+        }
+        dot += "}";
+        return dot;
+    }
 }
 
