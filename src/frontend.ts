@@ -321,7 +321,10 @@ document.getElementById('toLatex').addEventListener('click', function () {
 
     //@ts-ignore
     const latexModal = new bootstrap.Modal(document.getElementById('latexModal'));
+
     latexModal.show();
+
+
 });
 
 
@@ -338,10 +341,54 @@ document.getElementById('copyButton').addEventListener('click', function () {
     });
 });
 
+document.getElementById("toDot").addEventListener('click', () => {
+    const dot = NFA.vis_to_NFA(nodes, edges).NFA_to_dot();
+    document.getElementById('dotModalBody').innerText = dot;
+
+    //@ts-ignore
+    const dotModal = new bootstrap.Modal(document.getElementById('dotModal'));
+
+    dotModal.show();
+});
+
+document.getElementById('copyButtonDot').addEventListener('click', function () {
+    const dot = document.getElementById('dotModalBody').innerText;
+    navigator.clipboard.writeText(dot).then(() => {
+
+        const copyButton = document.getElementById('copyButtonDot');
+        copyButton.innerText = "Copied!";
+
+        setTimeout(() => {
+            copyButton.innerText = "Copy to Clipboard";
+        }, 3000);
+    });
+});
+
+
+
+document.getElementById('nfa-reset')?.addEventListener('click', () => {
+    nodes.clear();
+    edges.clear();
+
+    document.getElementById('nfa-reset')?.setAttribute('disabled', 'true');
+
+    updateStartState('')
+    updateAlphabet([""]);
+    updateStates(nodes.get().map(node => node.label))
+    updateAcceptStates([""])
+    updateTransitionSet();
+    updateTransitionTable()
+});
+
+
 
 document.getElementById("toDot").addEventListener('click', () => {
-    const latex = NFA.vis_to_NFA(nodes, edges).NFA_to_dot()
-    console.log(latex)
+    const dot = NFA.vis_to_NFA(nodes, edges).NFA_to_dot();
+    document.getElementById('dotModalBody').innerText = dot;
+
+    //@ts-ignore
+    const dotModal = new bootstrap.Modal(document.getElementById('dotModal'));
+    dotModal.show();
 });
 
 document.getElementById('preset-1')?.addEventListener('click', () => {
@@ -457,12 +504,4 @@ document.getElementById('preset-2')?.addEventListener('click', () => {
     updateTransitionSet();
     updateTransitionTable()
 });
-
-document.getElementById('nfa-reset')?.addEventListener('click', () => {
-    nodes.clear();
-    edges.clear();
-
-    document.getElementById('nfa-reset')?.setAttribute('disabled', 'true');
-});
-
 
