@@ -9,6 +9,20 @@ import { instance } from "@viz-js/viz";
 let contextMenu: any = null;
 let pickingTransitionState = false;
 
+function grayOutNodes(deadStateLabels: string[]): void {
+    const nodesToUpdate: any = [];
+    nodes.forEach(node => {
+        if (deadStateLabels.includes(node.label) && typeof node.color !== 'string' && node.color.background !== 'green') {
+            nodesToUpdate.push({ id: node.id, color: { background: 'gray' } });
+        } else if (!deadStateLabels.includes(node.label) && typeof node.color !== 'string' && node.color.background === 'gray') {
+            nodesToUpdate.push({ id: node.id, color: { background: 'white', border: 'black' } });
+        }
+    });
+    nodes.update(nodesToUpdate);
+}
+
+
+
 function updateStates(states: string[]) {
     const statesElement = document.getElementById('NFAstates');
     if (statesElement) {
@@ -87,6 +101,10 @@ function removeContextMenu() {
         document.body.removeChild(contextMenu);
         contextMenu = null;
     }
+}
+
+function removeEpsilonTransitions() {
+
 }
 
 network.on('oncontext', function (params) {
@@ -283,6 +301,72 @@ network.on('oncontext', function (params) {
     }
 
     document.body.appendChild(contextMenu);
+});
+
+function mergeTransitionEdges(clickedNodeId: any, targetNodeId: any, transitionLabel: any) {
+    const existingEdge = edges.get().find(edge => edge.from === clickedNodeId && edge.to === targetNodeId);
+
+    if (existingEdge) {
+        const existingLabels = existingEdge.label.split(',');
+        if (!existingLabels.includes(transitionLabel)) {
+            existingEdge.label += `,${transitionLabel}`;
+            edges.update(existingEdge);
+        }
+    } else {
+        edges.add({
+            from: clickedNodeId,
+            to: targetNodeId,
+            arrows: 'to',
+            label: transitionLabel
+        });
+    }
+}
+
+
+document.getElementById("removeEpsilonTransitions").addEventListener("click", () => {
+    const nfa = NFA.vis_to_NFA(nodes, edges);
+    nfa.removeEpsilonTransitions()
+
+    // console.log(nfa)
+    // console.log(nfa.nfaToRegex())
+    const newGraph = NFA.NFA_to_vis(nfa)
+    // Clear the existing nodes and edges
+    nodes.clear();
+    edges.clear();
+
+    // Add the new nodes and edges
+    nodes.add(newGraph.nodes.get());
+    edges.add(newGraph.edges.get());
+
+    updateStates(nodes.get().map(node => node.label))
+    updateAlphabet(edges.get().flatMap(edge => edge.label ? edge.label.split(',') : []));
+    const acceptStates = nodes.get().filter(node => typeof node.color !== 'string' && node.color.background === 'green').map(node => node.label);
+    updateAcceptStates(acceptStates)
+
+    updateTransitionSet();
+    updateTransitionTable()
+    const edgeGroups = edges.get().reduce((groups: any, edge) => {
+        const key = `${edge.from}-${edge.to}`;
+        if (!groups[key]) {
+            groups[key] = [];
+        }
+        groups[key].push(edge);
+        return groups;
+    }, {});
+
+    for (const [key, group] of Object.entries(edgeGroups)) {
+        if ((group as any[]).length > 1) {
+            //@ts-ignore
+            const [firstEdge, ...otherEdges] = group;
+            for (const edge of otherEdges) {
+                mergeTransitionEdges(firstEdge.from, firstEdge.to, edge.label);
+                edges.remove(edge.id);
+            }
+        }
+    }
+    const deadStates = NFA.vis_to_NFA(nodes, edges).findDeadStates();
+    grayOutNodes(deadStates.map(state => state.name))
+
 });
 
 document.addEventListener('click', function (event) {
@@ -634,14 +718,6 @@ document.getElementById('preset-2')?.addEventListener('click', () => {
     updateTransitionTable()
 });
 
-function grayOutNodes(deadStateLabels: string[]): void {
-    const nodesToUpdate: any = [];
-    nodes.forEach(node => {
-        if (deadStateLabels.includes(node.label) && typeof node.color !== 'string' && node.color.background !== 'green') {
-            nodesToUpdate.push({ id: node.id, color: { background: 'gray' } });
-        } else if (!deadStateLabels.includes(node.label) && typeof node.color !== 'string' && node.color.background === 'gray') {
-            nodesToUpdate.push({ id: node.id, color: { background: 'white', border: 'black' } });
-        }
-    });
-    nodes.update(nodesToUpdate);
-}
+
+
+

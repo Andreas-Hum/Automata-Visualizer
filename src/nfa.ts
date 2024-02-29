@@ -36,6 +36,7 @@ export default class NFA {
     }
 
 
+
     /**
      * Sets the start state for the NFA.
      * 
@@ -76,8 +77,34 @@ export default class NFA {
         this.acceptStates = new Set<State>(tempAcceptStates);
     }
 
+    public addTransition(fromState: State, inputSymbol: string, toState: State): void {
+        if (!this.transitions.has(fromState)) {
+            this.transitions.set(fromState, new Map<string, Set<State>>());
+        }
+        const transitionMap = this.transitions.get(fromState)!;
+        if (!transitionMap.has(inputSymbol)) {
+            transitionMap.set(inputSymbol, new Set<State>());
+        }
+        transitionMap.get(inputSymbol)!.add(toState);
 
+        // Also add the transition to the fromState
+        fromState.addTransition(inputSymbol, toState);
+    }
 
+    public removeTransition(fromState: State, inputSymbol: string, toState: State): void {
+        if (this.transitions.has(fromState)) {
+            const transitionMap = this.transitions.get(fromState)!;
+            if (transitionMap.has(inputSymbol)) {
+                transitionMap.get(inputSymbol)!.delete(toState);
+                if (transitionMap.get(inputSymbol)!.size === 0) {
+                    transitionMap.delete(inputSymbol);
+                }
+
+                // Also remove the transition from the fromState
+                fromState.deleteTransition(inputSymbol, toState);
+            }
+        }
+    }
     /**
      * Constructs the powerset of the states in the NFA.
      * The powerset is a set of all possible subsets of a set.
@@ -152,36 +179,89 @@ export default class NFA {
 
     }
 
+
+
     /**
-    * Computes the epsilon-closure of a state.
-    * 
-    * @param {State} state - The state for which to compute the epsilon-closure.
-    * @returns {Set<State>} The epsilon-closure of the state.
-    */
-    private getEpsilonClosure(state: State): Set<State> {
-        const epsilonClosure: Set<State> = new Set([state]);
-        const stack: State[] = [state];
+     * Removes all epsilon transitions from the NFA.
+     * 
+     * This method implements the epsilon-closure method for removing epsilon transitions.
+     * It iteratively finds all epsilon transitions and for each one:
+     * - Duplicates all transitions from the target state of the epsilon transition to start from the source state.
+     * - Deletes the epsilon transition.
+     * - If the target state is an accept state, it also makes the source state an accept state.
+     * 
+     * This process is repeated until there are no more epsilon transitions.
+     */
+    public removeEpsilonTransitions(): void {
+        let epsilonTransitions = this.getEpsilonTransitions();
 
-        while (stack.length > 0) {
-            const currentState: State = stack.pop()!;
-            const transitions: Map<string, Set<State>> | undefined = this.transitions.get(currentState);
+        while (epsilonTransitions.length > 0) {
+            for (const [sourceState, targetState] of epsilonTransitions) {
+                const targetTransitions = targetState.transitions;
 
-            if (transitions) {
-                const epsilonTransitions: Set<State> | undefined = transitions.get('ε');
-                if (epsilonTransitions) {
-                    for (const nextState of epsilonTransitions) {
-                        if (!epsilonClosure.has(nextState)) {
-                            epsilonClosure.add(nextState);
-                            stack.push(nextState);
+                if (targetTransitions) {
+                    for (const [inputSymbol, nextStateSet] of targetTransitions.entries()) {
+                        if (inputSymbol !== EPSILON) {
+                            let sourceTransitions = this.transitions.get(sourceState);
+                            if (sourceTransitions) {
+                                let nextStateSetForSymbol = sourceTransitions.get(inputSymbol);
+                                if (nextStateSetForSymbol) {
+                                    nextStateSetForSymbol = new Set([...nextStateSetForSymbol, ...nextStateSet]);
+                                } else {
+                                    nextStateSetForSymbol = nextStateSet;
+                                }
+                                sourceTransitions.set(inputSymbol, nextStateSetForSymbol);
+                            }
+
+                            // Add the transition to the source state's transition map as well
+                            for (const nextState of nextStateSet) {
+                                sourceState.addTransition(inputSymbol, nextState);
+                            }
                         }
                     }
+                }
+
+                if (this.acceptStates.has(targetState)) {
+                    this.acceptStates.add(sourceState);
+                    sourceState.settings.acceptState = true;
+                }
+
+                // Delete the epsilon transition directly from the source state
+                sourceState.deleteTransition(EPSILON, targetState);
+                let sourceTransitions = this.transitions.get(sourceState);
+                if (sourceTransitions) {
+                    sourceTransitions.delete(EPSILON);
+                }
+            }
+
+            epsilonTransitions = this.getEpsilonTransitions();
+        }
+
+        this.alphabet.delete(EPSILON);
+        this.removeUnreachableStates();
+        this.mergeEquivalentStates()
+    }
+
+
+    /**
+     * Returns all epsilon transitions in the NFA.
+     * 
+     * @returns {[State, State][]} An array of pairs of states with an epsilon transition from the first to the second state.
+     */
+    private getEpsilonTransitions(): [State, State][] {
+        const epsilonTransitions: [State, State][] = [];
+
+        for (const [state, transitionMap] of this.transitions) {
+            const epsilonTransitionsFromState: Set<State> | undefined = transitionMap.get('ε');
+            if (epsilonTransitionsFromState) {
+                for (const nextState of epsilonTransitionsFromState) {
+                    epsilonTransitions.push([state, nextState]);
                 }
             }
         }
 
-        return epsilonClosure;
+        return epsilonTransitions;
     }
-
 
     /**
      * Finds and returns an array of dead states in the NFA.
@@ -269,6 +349,7 @@ export default class NFA {
         // Remove unreachable states from the set of states
         unreachableStates.forEach(state => {
             this.states.delete(state);
+            this.acceptStates.delete(state)
         });
 
         // Remove transitions to and from unreachable states
@@ -286,45 +367,7 @@ export default class NFA {
         });
     }
 
-    /**
-  * Converts the NFA with epsilon transitions to an NFA without epsilon transitions.
-  * 
-  * This method uses the concept of epsilon-closure. The epsilon-closure of a state is the set of states that can be reached from it using only epsilon transitions.
-  */
-    public removeEpsilonTransitions(): void {
-        // Compute epsilon-closures for all states
-        const epsilonClosures: Map<State, Set<State>> = new Map();
-        for (const state of this.states) {
-            const epsilonClosure: Set<State> = this.getEpsilonClosure(state);
-            epsilonClosures.set(state, epsilonClosure);
-        }
 
-        // Update transitions
-        for (const [state, transitionMap] of this.transitions) {
-            const newTransitionMap: Map<string, Set<State>> = new Map();
-
-            for (const [symbol, nextStates] of transitionMap) {
-                if (symbol === 'ε') continue; // Skip epsilon transitions
-
-                const newNextStates: Set<State> = new Set();
-                for (const nextState of nextStates) {
-                    const epsilonClosure: Set<State> = epsilonClosures.get(nextState)!;
-                    for (const stateInEpsilonClosure of epsilonClosure) {
-                        newNextStates.add(stateInEpsilonClosure);
-                    }
-                }
-
-                newTransitionMap.set(symbol, newNextStates);
-            }
-
-            this.transitions.set(state, newTransitionMap);
-        }
-
-        // Remove epsilon transitions
-        for (const transitionMap of this.transitions.values()) {
-            transitionMap.delete('ε');
-        }
-    }
 
 
 
@@ -340,7 +383,6 @@ export default class NFA {
      */
     public static vis_to_NFA(nodes: DataSet<Node>, edges: DataSet<Edge>): NFA {
         let states = new Set<State>();
-
         let alphabet = new Set<string>();
         let startNodeLabel: string | undefined;
 
@@ -369,16 +411,99 @@ export default class NFA {
                 let fromState = Array.from(states).find(state => state.name === nodes.get(edge.from).label);
                 let toState = Array.from(states).find(state => state.name === nodes.get(edge.to).label);
                 if (fromState && toState) {
-                    fromState.addTransition(edge.label, toState);
-                }
-                if (!alphabet.has(edge.label)) {
-                    alphabet.add(edge.label);
+                    if (edge.label.includes(',')) {
+                        let labels = edge.label.split(',');
+                        labels.forEach(label => {
+                            fromState.addTransition(label, toState);
+                            if (!alphabet.has(label)) {
+                                alphabet.add(label);
+                            }
+                        });
+                    } else {
+                        fromState.addTransition(edge.label, toState);
+                        if (!alphabet.has(edge.label)) {
+                            alphabet.add(edge.label);
+                        }
+                    }
                 }
             }
         });
 
         return new NFA(states, alphabet);
     }
+
+    /**
+     * Converts an NFA object to a visual representation of a NFA.
+     *
+     * @param {NFA} nfa - The NFA object.
+     * @returns { { nodes: DataSet<Node>, edges: DataSet<Edge> } } - The nodes and edges of the visual representation.
+     */
+    public static NFA_to_vis(nfa: NFA): { nodes: DataSet<Node>, edges: DataSet<Edge> } {
+        let nodes = new DataSet<Node>();
+        let edges = new DataSet<Edge>();
+
+        let startNodeId: string | undefined;
+
+        // Find the start state
+        nfa.states.forEach(state => {
+            if (state.settings.startState) {
+                startNodeId = state.name;
+            }
+        });
+
+        nfa.states.forEach(state => {
+            let color = state.settings.acceptState ? { background: 'green' } : { background: 'white' };
+            let node = {
+                id: state.name,
+                label: state.name,
+                color: color,
+                x: state.x,
+                y: state.y,
+                physics: false
+            };
+            nodes.add(node);
+        });
+
+        // Add a special start node
+        nodes.add({
+            id: 9999, label: '',
+            color: { background: 'transparent', border: 'transparent' },
+            x: nfa.startState.x - 50,
+            y: nfa.startState.y,
+            physics: false,
+            fixed: true,
+            chosen: false
+        });
+
+        // Add an edge from the special start node to the start state
+        if (startNodeId) {
+            edges.add({
+                from: 9999, to: startNodeId, label: '', arrows: 'to',
+                color: 'black',
+                chosen: false,
+                smooth: {
+                    enabled: true,
+                    type: 'straightCross',
+                    roundness: 1
+                }
+            });
+        }
+
+        nfa.states.forEach(state => {
+            let transitions = nfa.transitions.get(state);
+            if (transitions) {
+                transitions.forEach((nextStates, symbol) => {
+                    nextStates.forEach(nextState => {
+                        edges.add({ from: state.name, to: nextState.name, label: symbol });
+                    });
+                });
+            }
+        });
+
+        return { nodes: nodes, edges: edges };
+    }
+
+
 
     /**
      * Generates a LaTeX representation of the transition table for the NFA.
@@ -412,9 +537,6 @@ export default class NFA {
         latex += "\\end{tabular}\n";
         return latex;
     }
-
-
-
 
     /**
      * Generates a LaTeX representation of the NFA using the tikz package.
@@ -502,6 +624,7 @@ export default class NFA {
         latex += "\\end{tikzpicture}\n";
         return latex;
     }
+
     /**
      * Converts the NFA to a DOT language representation.
      * 
@@ -533,6 +656,93 @@ export default class NFA {
         return dot;
     }
 
+    /**
+     * Merges equivalent states in the NFA.
+     * Two states are considered equivalent if they are both accept states or both non-accept states,
+     * and they have the same transitions.
+     */
+    public mergeEquivalentStates(): void {
+        let states = Array.from(this.states);
+        for (let i = 0; i < states.length; i++) {
+            for (let j = i + 1; j < states.length; j++) {
+                if (this.areEquivalent(states[i], states[j])) {
+                    this.mergeStates(states[i], states[j]);
+                    states.splice(j, 1);
+                    j--;
+                }
+            }
+        }
+    }
 
+    /**
+     * Checks if two states are equivalent.
+     * @param {State} state1 - The first state.
+     * @param {State} state2 - The second state.
+     * @returns {boolean} True if the states are equivalent, false otherwise.
+     */
+    private areEquivalent(state1: State, state2: State): boolean {
+        if (state1.settings.acceptState !== state2.settings.acceptState) {
+            return false;
+        }
+
+        let transitions1 = Array.from(state1.transitions.entries());
+        let transitions2 = Array.from(state2.transitions.entries());
+
+        if (transitions1.length !== transitions2.length) {
+            return false;
+        }
+
+        for (let i = 0; i < transitions1.length; i++) {
+            if (transitions1[i][0] !== transitions2[i][0] ||
+                !this.areSetsEqual(transitions1[i][1], transitions2[i][1])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Checks if two sets of states are equal.
+     * @param {Set<State>} set1 - The first set of states.
+     * @param {Set<State>} set2 - The second set of states.
+     * @returns {boolean} True if the sets are equal, false otherwise.
+     */
+    private areSetsEqual(set1: Set<State>, set2: Set<State>): boolean {
+        if (set1.size !== set2.size) {
+            return false;
+        }
+
+        for (let item of set1) {
+            if (!set2.has(item)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Merges two states by replacing all transitions to the second state with transitions to the first state.
+     * @param {State} state1 - The state to keep.
+     * @param {State} state2 - The state to merge into the first state.
+     */
+    private mergeStates(state1: State, state2: State): void {
+        for (let [state, transitions] of this.transitions) {
+            for (let [symbol, nextStateSet] of transitions) {
+                if (nextStateSet.has(state2)) {
+                    nextStateSet.delete(state2);
+                    nextStateSet.add(state1);
+                    state.addTransition(symbol, state1);
+                    state.deleteTransition(symbol, state2);
+                }
+            }
+        }
+
+        this.states.delete(state2);
+        if (this.acceptStates.has(state2)) {
+            this.acceptStates.delete(state2);
+        }
+    }
 
 }

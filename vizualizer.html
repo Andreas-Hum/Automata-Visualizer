@@ -76,7 +76,12 @@
             <div class="container rounded shadow p-3 bg-white" style="margin-bottom: 20px;">
                 <div class="row">
                     <div class="col">
-                        <button class="btn btn-warning w-100" id="import" title="Import a saved NFA JSON file">
+                        <button class="btn btn-warning w-100" id="removeEpsilonTransitions">
+                            Remove ε-transitions
+                        </button>
+                    </div>
+                    <div class="col">
+                        <button class="btn btn-warning w-100" id="import">
                             <i class="bi bi-upload"></i> Import
                         </button>
                     </div>
@@ -300,8 +305,8 @@
                 </div>
             </div>
         </div>
-        <button id="test">hehe</button>
-        <script src="./dist/bundle.js"></script>
+    </div>
+    <script src="./dist/bundle.js"></script>
 
 </body>
 </html>
