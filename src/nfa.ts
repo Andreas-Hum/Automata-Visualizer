@@ -120,12 +120,12 @@ export default class NFA {
 
         switch (tempStartState.length) {
             case 0:
-                throw new Error("No start state defined");
+            // throw new Error("No start state defined");
             case 1:
                 this.startState = tempStartState[0];
                 break;
             default:
-                throw new Error("Can't have more than one start state defined");
+            // throw new Error("Can't have more than one start state defined");
         }
     }
 
@@ -140,13 +140,97 @@ export default class NFA {
     private setAcceptStates(): void {
         const tempAcceptStates: State[] = Array.from(this.states).filter((state: State) => state.settings.acceptState === true);
 
-        if (tempAcceptStates.length === 0) {
-            throw new Error("No accept states defined");
-        }
+        // if (tempAcceptStates.length === 0) {
+        //     throw new Error("No accept states defined");
+        // }
 
         this.acceptStates = new Set<State>(tempAcceptStates);
     }
 
+    public findDeadStates(): State[] {
+        const deadStates: Set<State> = new Set<State>();
+
+        for (const state of this.states) {
+            const visited: Set<State> = new Set<State>();
+            const stack: State[] = [state];
+
+            let isDeadState = true;
+
+            while (stack.length > 0) {
+                const currentState: State = stack.pop()!;
+                visited.add(currentState);
+
+                if (this.acceptStates.has(currentState)) {
+                    isDeadState = false;
+                    break;
+                }
+
+                const transitions: Map<string, Set<State>> | undefined = this.transitions.get(currentState);
+                if (transitions) {
+                    for (const nextStateSet of transitions.values()) {
+                        for (const nextState of nextStateSet) {
+                            if (!visited.has(nextState)) {
+                                stack.push(nextState);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (isDeadState) {
+                deadStates.add(state);
+            }
+        }
+
+        return [...deadStates];
+    }
+
+    public removeDeadStates(): void {
+        const deadStates = this.findDeadStates();
+
+        // Remove dead states from the set of states
+        deadStates.forEach(deadState => {
+            this.states.delete(deadState);
+        });
+
+        // Remove transitions to and from dead states
+        this.transitions.forEach((transitionMap, state) => {
+            if (deadStates.includes(state)) {
+                // Remove all transitions from a dead state
+                this.transitions.delete(state);
+            } else {
+                // Remove all transitions to a dead state
+                transitionMap.forEach((nextStates, symbol) => {
+                    nextStates = new Set([...nextStates].filter(nextState => !deadStates.includes(nextState)));
+                    transitionMap.set(symbol, nextStates);
+                });
+            }
+        });
+    }
+
+    
+    public removeUnreachableStates(): void {
+        const unreachableStates = this.findUnreachableStates();
+
+        // Remove unreachable states from the set of states
+        unreachableStates.forEach(state => {
+            this.states.delete(state);
+        });
+
+        // Remove transitions to and from unreachable states
+        this.transitions.forEach((transitionMap, state) => {
+            if (unreachableStates.has(state)) {
+                // Remove all transitions from an unreachable state
+                this.transitions.delete(state);
+            } else {
+                // Remove all transitions to an unreachable state
+                transitionMap.forEach((nextStates, symbol) => {
+                    nextStates = new Set([...nextStates].filter(nextState => !unreachableStates.has(nextState)));
+                    transitionMap.set(symbol, nextStates);
+                });
+            }
+        });
+    }
     /**
      * Converts a visual representation of a NFA to an NFA object.
      *
@@ -155,7 +239,7 @@ export default class NFA {
      * @param {DataSet<Edge>} edges - The edges of the visual representation.
      * @returns {NFA} - The NFA object.
      */
-    static vis_to_NFA(nodes: DataSet<Node>, edges: DataSet<Edge>): NFA {
+    public static vis_to_NFA(nodes: DataSet<Node>, edges: DataSet<Edge>): NFA {
         let states = new Set<State>();
 
         let alphabet = new Set<string>();
@@ -349,5 +433,7 @@ export default class NFA {
         dot += "}";
         return dot;
     }
-}
 
+
+
+}

@@ -169,52 +169,6 @@
     </div>
     </div>
 
-    <div class="modal fade" id="latexModal" tabindex="-1" aria-labelledby="latexModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="latexModalLabel">LaTeX Output</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div id="latexPackages">
-                    Remember to import these packages:<br>
-                    \usepackage{tikz}
-                    \usetikzlibrary{automata,positioning}
-                </div>
-                <hr>
-                <pre><code id="latexModalBody">
-                </code></pre>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" id="copyButton">Copy to Clipboard</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="dotModal" tabindex="-1" aria-labelledby="dotModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="dotModalLabel">DOT Output</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div id="dotPackages">
-                    Remember to use a Graphviz tool to visualize the DOT output.
-                </div>
-                <hr>
-                <pre><code id="dotModalBody">
-                </code></pre>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" id="copyButtonDot">Copy to Clipboard</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="dropdown-container">
         <div class="btn-group sticky-button">
             <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#exportModal">
@@ -222,7 +176,6 @@
             </button>
         </div>
     </div>
-    <!-- TODO: FIX THIS ADD A CLICK EVENT OR JUST PUT THE DIVS INSIDE -->
     <div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -233,6 +186,18 @@
                     </button>
                 </div>
                 <div class="modal-body">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="includeDeadStates">
+                        <label class="form-check-label" for="includeDeadStates">
+                            Include Dead States
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="includeUnreachableStates">
+                        <label class="form-check-label" for="includeUnreachableStates">
+                            Include Unreachable States
+                        </label>
+                    </div>
                     <div class="card-deck">
                         <div class="card">
                             <div class="card-header">
@@ -271,16 +236,72 @@
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                    <button type="button" id="closeButton">Close</button>
+
+                    <div class="d-none" id="image-modal">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="image-modal-label">Image Output</h5>
+                                </div>
+                                <hr>
+                                <div style="margin: 0 auto;" id="image-body"></div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-primary" id="copyButtonSVG">Copy to
+                                        Clipboard</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-none" id="latexModal">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="latexModalLabel">LaTeX Output</h5>
+                                </div>
+                                <div id="latexPackages">
+                                    Remember to import these packages:<br>
+                                    \usepackage{tikz}
+                                    \usetikzlibrary{automata,positioning}
+                                </div>
+                                <hr>
+                                <pre><code id="latexModalBody">
+                                </code></pre>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-primary" id="copyButton">Copy to
+                                        Clipboard</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-none" id="dotModal">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="dotModalLabel">DOT Output</h5>
+                                </div>
+                                <div id="dotPackages">
+                                    Remember to use a Graphviz tool to visualize the DOT output.
+                                </div>
+                                <hr>
+                                <pre><code id="dotModalBody">
+                                </code></pre>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-primary" id="copyButtonDot">Copy to
+                                        Clipboard</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="closebtn btn btn-secondary" data-dismiss="modal">Close</button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <script src="./dist/bundle.js"></script>
+        <script src="./dist/bundle.js"></script>
 
 </body>
 </html>

@@ -3,10 +3,12 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import { nodes, edges, network, updateNodeColor, createMenuItem, EPSILON } from './network';
 import NFA from './nfa';
+import { instance } from "@viz-js/viz";
 
 
 let contextMenu: any = null;
 let pickingTransitionState = false;
+let nfa = null;
 
 function updateStates(states: string[]) {
     const statesElement = document.getElementById('NFAstates');
@@ -65,7 +67,8 @@ function updateTransitionTable() {
             tableHtml += `<tr><td>${fromLabel}</td>`;
             alphabet.forEach(symbol => {
                 const toLabels = edges.get().filter(edge => nodes.get(edge.from).label === fromLabel && edge.label.split(',').includes(symbol)).map(edge => nodes.get(edge.to).label);
-                tableHtml += `<td>${toLabels.join(', ')}</td>`;
+                const uniqueToLabels = [...new Set(toLabels)]; // Remove duplicates
+                tableHtml += `<td>${uniqueToLabels.join(', ')}</td>`;
             });
             tableHtml += '</tr>';
         });
@@ -76,7 +79,8 @@ function updateTransitionTable() {
 }
 
 function getAlphabet() {
-    return edges.get().flatMap(edge => edge.label ? edge.label.split(',') : []);
+    const labels = edges.get().flatMap(edge => edge.label ? edge.label.split(',') : []);
+    return [...new Set(labels)];
 }
 
 function removeContextMenu() {
@@ -145,11 +149,13 @@ network.on('oncontext', function (params) {
 
                     updateTransitionSet();
                     updateTransitionTable()
+
+                    const deadStates = NFA.vis_to_NFA(nodes, edges).findDeadStates();
+                    grayOutNodes(deadStates.map(state => state.name))
                 };
                 network.unselectAll();
                 pickingTransitionState = false;
                 updateAlphabet(edges.get().flatMap(edge => edge.label ? edge.label.split(',') : []));
-
             });
 
             removeContextMenu();
@@ -201,6 +207,8 @@ network.on('oncontext', function (params) {
                 });
 
                 updateStartState(clickedNode.label)
+                const deadStates = NFA.vis_to_NFA(nodes, edges).findDeadStates();
+                grayOutNodes(deadStates.map(state => state.name))
             }
             removeContextMenu();
         }));
@@ -220,6 +228,8 @@ network.on('oncontext', function (params) {
             updateNodeColor(clickedNode, newColor);
             const acceptStates = nodes.get().filter(node => typeof node.color !== 'string' && node.color.background === 'green').map(node => node.label);
             updateAcceptStates(acceptStates);
+            const deadStates = NFA.vis_to_NFA(nodes, edges).findDeadStates();
+            grayOutNodes(deadStates.map(state => state.name))
             removeContextMenu();
         }));
 
@@ -233,10 +243,13 @@ network.on('oncontext', function (params) {
             updateStates(nodes.get().map(node => node.label))
             updateTransitionSet();
             updateTransitionTable()
+            const deadStates = NFA.vis_to_NFA(nodes, edges).findDeadStates();
+            grayOutNodes(deadStates.map(state => state.name))
             removeContextMenu();
             if (nodes.length === 0) {
                 document.getElementById('nfa-reset')?.setAttribute('disabled', 'true');
             }
+
         }));
 
     } else if (clickedEdge) {
@@ -244,12 +257,14 @@ network.on('oncontext', function (params) {
             edges.remove(clickedEdgeId);
             const edgeLabels = edges.get();
             if (edgeLabels) {
-                updateAlphabet(edgeLabels.flatMap(edge => edge.label.split(',')));
+                updateAlphabet(edgeLabels.flatMap(edge => edge.label ? edge.label.split(',') : []));
             } else {
                 updateAlphabet([]);
             }
             updateTransitionTable()
             updateTransitionSet();
+            const deadStates = NFA.vis_to_NFA(nodes, edges).findDeadStates();
+            grayOutNodes(deadStates.map(state => state.name))
             removeContextMenu();
         }));
     } else {
@@ -261,8 +276,8 @@ network.on('oncontext', function (params) {
 
             nodes.add({ id: nodeId, label: 'q' + nodeId, x: pointer.x, y: pointer.y, color: { background: 'white', border: 'black' }, physics: false });
             updateStates(nodes.get().map(node => node.label));
-            if (nodes.length === 0) {
-                document.getElementById('nfa-reset')?.setAttribute('disabled', 'false');
+            if (nodes.length !== 0) {
+                document.getElementById('nfa-reset')?.removeAttribute('disabled');
             }
             removeContextMenu();
         }));
@@ -315,18 +330,6 @@ network.on('afterDrawing', function () {
     }
 });
 
-document.getElementById('toLatex').addEventListener('click', function () {
-    const latex = NFA.vis_to_NFA(nodes, edges).NFA_to_latex();
-    document.getElementById('latexModalBody').innerText = latex;
-
-    //@ts-ignore
-    const latexModal = new bootstrap.Modal(document.getElementById('latexModal'));
-
-    latexModal.show();
-
-
-});
-
 
 document.getElementById('copyButton').addEventListener('click', function () {
     const latex = document.getElementById('latexModalBody').innerText;
@@ -341,15 +344,7 @@ document.getElementById('copyButton').addEventListener('click', function () {
     });
 });
 
-document.getElementById("toDot").addEventListener('click', () => {
-    const dot = NFA.vis_to_NFA(nodes, edges).NFA_to_dot();
-    document.getElementById('dotModalBody').innerText = dot;
 
-    //@ts-ignore
-    const dotModal = new bootstrap.Modal(document.getElementById('dotModal'));
-
-    dotModal.show();
-});
 
 document.getElementById('copyButtonDot').addEventListener('click', function () {
     const dot = document.getElementById('dotModalBody').innerText;
@@ -363,8 +358,151 @@ document.getElementById('copyButtonDot').addEventListener('click', function () {
         }, 3000);
     });
 });
+document.getElementById('copyButtonSVG').addEventListener('click', function () {
+    const img = document.querySelector('#image-body img');
+    if (!img) {
+        console.error('No image found to copy');
+        return;
+    }
 
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const imgLoad = new Image();
 
+    imgLoad.onload = function () {
+        canvas.width = imgLoad.width;
+        canvas.height = imgLoad.height;
+        ctx.drawImage(imgLoad, 0, 0, imgLoad.width, imgLoad.height);
+        canvas.toBlob(function (blob) {
+            const item = new ClipboardItem({ 'image/png': blob });
+            navigator.clipboard.write([item]).then(() => {
+                console.log('Image copied to clipboard');
+            }).catch(err => {
+                console.error('Failed to copy image: ', err);
+            });
+        }, 'image/png');
+    };
+
+    //@ts-ignore
+    imgLoad.src = img.src;
+});
+document.getElementById('toImage').addEventListener('click', function () {
+    let nfa = NFA.vis_to_NFA(nodes, edges);
+
+    // Check the state of the checkboxes
+    //@ts-ignore
+    const includeDeadStates = document.getElementById('includeDeadStates').checked;
+    //@ts-ignore
+    const includeUnreachableStates = document.getElementById('includeUnreachableStates').checked;
+
+    // Modify the NFA based on the checkboxes
+    if (!includeDeadStates) {
+        nfa.removeDeadStates();
+    }
+    if (!includeUnreachableStates) {
+        nfa.removeUnreachableStates();
+    }
+
+    const dot = nfa.NFA_to_dot();
+    instance().then(viz => {
+        const imageBody = document.querySelector("#image-body");
+        imageBody.innerHTML = '';
+
+        const svgElement = viz.renderSVGElement(dot);
+
+        const img = new Image();
+
+        const svgData = new XMLSerializer().serializeToString(svgElement);
+        const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+
+        img.src = url;
+
+        imageBody.appendChild(img);
+
+        document.getElementById('latexModal').classList.add('d-none');
+        document.getElementById('dotModal').classList.add('d-none');
+        document.getElementById('image-modal').classList.remove('d-none');
+    });
+});
+
+document.getElementById('toLatex').addEventListener('click', function () {
+    let nfa = NFA.vis_to_NFA(nodes, edges);
+
+    // Check the state of the checkboxes
+    //@ts-ignore
+    const includeDeadStates = document.getElementById('includeDeadStates').checked;
+    //@ts-ignore
+    const includeUnreachableStates = document.getElementById('includeUnreachableStates').checked;
+
+    // Modify the NFA based on the checkboxes
+    if (!includeDeadStates) {
+        nfa.removeDeadStates();
+    }
+    if (!includeUnreachableStates) {
+        nfa.removeUnreachableStates();
+    }
+
+    let latex = nfa.NFA_to_latex()
+
+    document.getElementById('latexModalBody').innerText = latex
+
+    document.getElementById('latexModal').classList.remove('d-none');
+    document.getElementById('dotModal').classList.add('d-none');
+    document.getElementById('image-modal').classList.add('d-none');
+});
+
+document.getElementById('toDot').addEventListener('click', function () {
+    let nfa = NFA.vis_to_NFA(nodes, edges);
+
+    // Check the state of the checkboxes
+    //@ts-ignore
+    const includeDeadStates = document.getElementById('includeDeadStates').checked;
+    //@ts-ignore
+    const includeUnreachableStates = document.getElementById('includeUnreachableStates').checked;
+
+    // Modify the NFA based on the checkboxes
+    if (!includeDeadStates) {
+        nfa.removeDeadStates();
+    }
+    if (!includeUnreachableStates) {
+        nfa.removeUnreachableStates();
+    }
+
+    let dot = nfa.NFA_to_dot()
+    document.getElementById('dotModalBody').innerText = dot;
+
+    document.getElementById('latexModal').classList.add('d-none');
+    document.getElementById('dotModal').classList.remove('d-none');
+    document.getElementById('image-modal').classList.add('d-none');
+});
+
+document.querySelectorAll('.closebtn, .close').forEach(function (button) {
+    button.addEventListener('click', function () {
+        // Remove the 'modal-open' class from the body
+        document.body.classList.remove('modal-open');
+        // Reset the modal content
+        document.getElementById('latexModal').classList.add('d-none');
+        document.getElementById('dotModal').classList.add('d-none');
+        document.getElementById('image-modal').classList.add('d-none');
+        // Delay the backdrop hiding until after the modal has been fully hidden
+        setTimeout(function () {
+            // Hide the modal backdrop
+            const backdrop = document.querySelector('.modal-backdrop');
+            if (backdrop) {
+                //@ts-ignore
+                backdrop.style.display = 'none';
+            }
+        }, 0);
+    });
+});
+
+var myModal = document.getElementById('exportModal')
+
+myModal.addEventListener('hide.bs.modal', function (event) {
+    // Do something when the modal is closed
+    console.log('Modal has been closed');
+});
 
 document.getElementById('nfa-reset')?.addEventListener('click', () => {
     nodes.clear();
@@ -382,14 +520,6 @@ document.getElementById('nfa-reset')?.addEventListener('click', () => {
 
 
 
-document.getElementById("toDot").addEventListener('click', () => {
-    const dot = NFA.vis_to_NFA(nodes, edges).NFA_to_dot();
-    document.getElementById('dotModalBody').innerText = dot;
-
-    //@ts-ignore
-    const dotModal = new bootstrap.Modal(document.getElementById('dotModal'));
-    dotModal.show();
-});
 
 document.getElementById('preset-1')?.addEventListener('click', () => {
 
@@ -505,3 +635,14 @@ document.getElementById('preset-2')?.addEventListener('click', () => {
     updateTransitionTable()
 });
 
+function grayOutNodes(deadStateLabels: string[]): void {
+    const nodesToUpdate: any = [];
+    nodes.forEach(node => {
+        if (deadStateLabels.includes(node.label) && typeof node.color !== 'string' && node.color.background !== 'green') {
+            nodesToUpdate.push({ id: node.id, color: { background: 'gray' } });
+        } else if (!deadStateLabels.includes(node.label) && typeof node.color !== 'string' && node.color.background === 'gray') {
+            nodesToUpdate.push({ id: node.id, color: { background: 'white', border: 'black' } });
+        }
+    });
+    nodes.update(nodesToUpdate);
+}
