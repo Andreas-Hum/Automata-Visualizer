@@ -8,7 +8,6 @@ import { instance } from "@viz-js/viz";
 
 let contextMenu: any = null;
 let pickingTransitionState = false;
-let nfa = null;
 
 function updateStates(states: string[]) {
     const statesElement = document.getElementById('NFAstates');
