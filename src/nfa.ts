@@ -37,6 +37,48 @@ export default class NFA {
 
 
     /**
+     * Sets the start state for the NFA.
+     * 
+     * This method filters the provided set of states to find the start state.
+     * It throws an error if no start state is defined or if more than one start state is defined.
+     * 
+     * @throws {Error} Will throw an error if no start state is defined or if more than one start state is defined.
+     */
+    private setStartState(): void {
+        const tempStartState: State[] = Array.from(this.states).filter((state: State) => state.settings.startState === true);
+
+        switch (tempStartState.length) {
+            case 0:
+            // throw new Error("No start state defined");
+            case 1:
+                this.startState = tempStartState[0];
+                break;
+            default:
+            // throw new Error("Can't have more than one start state defined");
+        }
+    }
+
+    /**
+     * Sets the accept states for the NFA.
+     * 
+     * This method filters the provided set of states to find the accept states.
+     * It throws an error if no accept states are defined.
+     * 
+     * @throws {Error} Will throw an error if no accept states are defined.
+     */
+    private setAcceptStates(): void {
+        const tempAcceptStates: State[] = Array.from(this.states).filter((state: State) => state.settings.acceptState === true);
+
+        // if (tempAcceptStates.length === 0) {
+        //     throw new Error("No accept states defined");
+        // }
+
+        this.acceptStates = new Set<State>(tempAcceptStates);
+    }
+
+
+
+    /**
      * Constructs the powerset of the states in the NFA.
      * The powerset is a set of all possible subsets of a set.
      * The subsets in the powerset are sorted by their size.
@@ -67,6 +109,9 @@ export default class NFA {
 
         return new Set(sortedResult);
     }
+
+
+    // -> methods for finding things <- //
 
 
     /**
@@ -108,45 +153,42 @@ export default class NFA {
     }
 
     /**
-     * Sets the start state for the NFA.
-     * 
-     * This method filters the provided set of states to find the start state.
-     * It throws an error if no start state is defined or if more than one start state is defined.
-     * 
-     * @throws {Error} Will throw an error if no start state is defined or if more than one start state is defined.
-     */
-    private setStartState(): void {
-        const tempStartState: State[] = Array.from(this.states).filter((state: State) => state.settings.startState === true);
+    * Computes the epsilon-closure of a state.
+    * 
+    * @param {State} state - The state for which to compute the epsilon-closure.
+    * @returns {Set<State>} The epsilon-closure of the state.
+    */
+    private getEpsilonClosure(state: State): Set<State> {
+        const epsilonClosure: Set<State> = new Set([state]);
+        const stack: State[] = [state];
 
-        switch (tempStartState.length) {
-            case 0:
-            // throw new Error("No start state defined");
-            case 1:
-                this.startState = tempStartState[0];
-                break;
-            default:
-            // throw new Error("Can't have more than one start state defined");
+        while (stack.length > 0) {
+            const currentState: State = stack.pop()!;
+            const transitions: Map<string, Set<State>> | undefined = this.transitions.get(currentState);
+
+            if (transitions) {
+                const epsilonTransitions: Set<State> | undefined = transitions.get('ε');
+                if (epsilonTransitions) {
+                    for (const nextState of epsilonTransitions) {
+                        if (!epsilonClosure.has(nextState)) {
+                            epsilonClosure.add(nextState);
+                            stack.push(nextState);
+                        }
+                    }
+                }
+            }
         }
+
+        return epsilonClosure;
     }
+
 
     /**
-     * Sets the accept states for the NFA.
+     * Finds and returns an array of dead states in the NFA.
+     * A state is considered dead if it is not an accept state and there are no transitions leading to an accept state.
      * 
-     * This method filters the provided set of states to find the accept states.
-     * It throws an error if no accept states are defined.
-     * 
-     * @throws {Error} Will throw an error if no accept states are defined.
+     * @returns {State[]} An array of dead states.
      */
-    private setAcceptStates(): void {
-        const tempAcceptStates: State[] = Array.from(this.states).filter((state: State) => state.settings.acceptState === true);
-
-        // if (tempAcceptStates.length === 0) {
-        //     throw new Error("No accept states defined");
-        // }
-
-        this.acceptStates = new Set<State>(tempAcceptStates);
-    }
-
     public findDeadStates(): State[] {
         const deadStates: Set<State> = new Set<State>();
 
@@ -185,6 +227,14 @@ export default class NFA {
         return [...deadStates];
     }
 
+
+
+    // -> REMOVAL <- //
+
+    /**
+     * Removes dead states from the NFA.
+     * A state is considered dead if it is not an accept state and there are no transitions leading to an accept state.
+     */
     public removeDeadStates(): void {
         const deadStates = this.findDeadStates();
 
@@ -208,7 +258,11 @@ export default class NFA {
         });
     }
 
-    
+
+    /**
+     * Removes unreachable states from the NFA.
+     * A state is considered unreachable if there are no transitions leading to it from the start state.
+     */
     public removeUnreachableStates(): void {
         const unreachableStates = this.findUnreachableStates();
 
@@ -231,6 +285,51 @@ export default class NFA {
             }
         });
     }
+
+    /**
+  * Converts the NFA with epsilon transitions to an NFA without epsilon transitions.
+  * 
+  * This method uses the concept of epsilon-closure. The epsilon-closure of a state is the set of states that can be reached from it using only epsilon transitions.
+  */
+    public removeEpsilonTransitions(): void {
+        // Compute epsilon-closures for all states
+        const epsilonClosures: Map<State, Set<State>> = new Map();
+        for (const state of this.states) {
+            const epsilonClosure: Set<State> = this.getEpsilonClosure(state);
+            epsilonClosures.set(state, epsilonClosure);
+        }
+
+        // Update transitions
+        for (const [state, transitionMap] of this.transitions) {
+            const newTransitionMap: Map<string, Set<State>> = new Map();
+
+            for (const [symbol, nextStates] of transitionMap) {
+                if (symbol === 'ε') continue; // Skip epsilon transitions
+
+                const newNextStates: Set<State> = new Set();
+                for (const nextState of nextStates) {
+                    const epsilonClosure: Set<State> = epsilonClosures.get(nextState)!;
+                    for (const stateInEpsilonClosure of epsilonClosure) {
+                        newNextStates.add(stateInEpsilonClosure);
+                    }
+                }
+
+                newTransitionMap.set(symbol, newNextStates);
+            }
+
+            this.transitions.set(state, newTransitionMap);
+        }
+
+        // Remove epsilon transitions
+        for (const transitionMap of this.transitions.values()) {
+            transitionMap.delete('ε');
+        }
+    }
+
+
+
+    // -> CONVERSIONS <- //
+
     /**
      * Converts a visual representation of a NFA to an NFA object.
      *
