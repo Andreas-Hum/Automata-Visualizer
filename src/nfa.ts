@@ -1,5 +1,5 @@
 import { DataSet, Node, Edge } from 'vis-network/standalone/esm/vis-network';
-
+import DFA from './dfa';
 import State from "./state";
 
 const EPSILON: string = 'ε'
@@ -104,6 +104,53 @@ export default class NFA {
                 fromState.deleteTransition(inputSymbol, toState);
             }
         }
+    }
+
+    public constructDFA(): DFA {
+        // Construct the powerset of the NFA's states
+        const powerset: Set<Set<State>> = this.constructPowerset();
+
+        // Create a new DFA with the powerset as its states and the same alphabet as the NFA
+        const dfa: DFA = new DFA(powerset, this.alphabet);
+
+        // For each subset of states in the powerset
+        for (const stateSet of powerset) {
+            // Create a new state with the subset name
+            const subsetName = Array.from(stateSet).map(state => state.name).join(',');
+            const newState = new State(subsetName, { startState: false, acceptState: false });
+
+            // Create a new set that contains the new state
+            const newStateSet: Set<State> = new Set([newState]);
+
+            // For each symbol in the alphabet
+            for (const symbol of this.alphabet) {
+                // Find the set of states that can be reached from any state in the subset by the symbol
+                const reachableStates: Set<State> = new Set();
+                for (const state of stateSet) {
+                    const transitionMap = this.transitions.get(state);
+                    if (transitionMap) {
+                        const nextStateSet = transitionMap.get(symbol);
+                        if (nextStateSet) {
+                            for (const nextState of nextStateSet) {
+                                reachableStates.add(nextState);
+                            }
+                        }
+                    }
+                }
+
+                // Find the corresponding state set in the DFA for the reachable states
+                const reachableStateNames = Array.from(reachableStates).map(state => state.name).join(',');
+                const dfaStateSet = Array.from(dfa.states).find(set => Array.from(set).some(state => state.name === reachableStateNames));
+
+                // Add a transition in the DFA from the new state set to the set of reachable states
+                if (dfaStateSet) {
+                    dfa.addTransition(newStateSet, symbol, dfaStateSet);
+                }
+            }
+
+        }
+
+        return dfa;
     }
     /**
      * Constructs the powerset of the states in the NFA.

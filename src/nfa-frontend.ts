@@ -1,9 +1,10 @@
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import 'bootstrap-icons/font/bootstrap-icons.css';
-import { nodes, edges, network, updateNodeColor, createMenuItem, EPSILON } from './network';
+import { nodes, edges, network, updateNodeColor, createMenuItem, EPSILON, networkDFA, dataDFA } from './network';
 import NFA from './nfa';
 import { instance } from "@viz-js/viz";
+import DFA from './dfa';
 
 
 let contextMenu: any = null;
@@ -721,3 +722,12 @@ document.getElementById('preset-2')?.addEventListener('click', () => {
 
 
 
+document.getElementById("toDFA").addEventListener("click", () => {
+    const nfa = NFA.vis_to_NFA(nodes, edges)
+    dataDFA.edges.clear()
+    dataDFA.nodes.clear()
+    const dfa = nfa.constructDFA()
+    const graph = DFA.DFA_to_vis(dfa)
+    dataDFA.edges.add(graph.edges.get())
+    dataDFA.nodes.add(graph.nodes.get())
+})

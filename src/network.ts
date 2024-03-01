@@ -66,3 +66,44 @@ export function createMenuItem(iconClass: string, text: string, onClick: () => v
     return item;
 }
 
+let containerDFA = document.getElementById('mynetwork2');
+export let dataDFA = {
+    nodes: new DataSet<Node>(),
+    edges: new DataSet<Edge>()
+};
+let optionsDFA = {
+    nodes: {
+        font: {
+            size: 14,
+            color: 'black'
+        },
+        borderWidth: 2,
+        color: {
+            border: '#2B7CE9',
+        }
+    },
+    edges: {
+        width: 2,
+        color: {
+            color: 'black',
+            highlight: '#848484'
+        },
+        arrows: {
+            to: {
+                enabled: true,
+                scaleFactor: 0.5
+            }
+        },
+
+    },
+    physics: {
+        enabled: true,
+    },
+    interaction: {
+        hover: true,
+        tooltipDelay: 300,
+    }
+
+};
+
+export let networkDFA = new Network(containerDFA, dataDFA, optionsDFA);
